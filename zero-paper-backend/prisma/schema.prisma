@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Funcionário ─────────────────────────────────────────────
+model Funcionario {
+  id_funcionario Int          @id @default(autoincrement())
+  nome           String       @db.VarChar(100)
+  login          String       @unique @db.VarChar(50)
+  senha          String       @db.VarChar(255)
+  papel          PapelEnum    @default(atendente)
+
+  dividas        Divida[]
+
+  @@map("funcionario")
+}
+
+// ─── Cliente ─────────────────────────────────────────────────
+model Cliente {
+  id_cliente Int      @id @default(autoincrement())
+  nome       String   @db.VarChar(150)
+  cpf        String   @unique @db.Char(11)
+  telefone   String?  @db.VarChar(20)
+  endereco   String?  @db.VarChar(255)
+  email      String?  @db.VarChar(120)
+
+  dividas    Divida[]
+
+  @@map("cliente")
+}
+
+// ─── Dívida ──────────────────────────────────────────────────
+model Divida {
+  id_divida               Int          @id @default(autoincrement())
+  id_cliente              Int
+  id_funcionario          Int
+  valor_total             Decimal      @db.Decimal(10, 2)
+  data_registro           DateTime     @db.Date
+  descricao_produto       String       @db.VarChar(255)
+  imei                    String?      @db.VarChar(30)
+  informacoes_adicionais  String?      @db.Text
+  parcelas_total          Int
+  status                  StatusDivida @default(ativa)
+
+  cliente                 Cliente      @relation(fields: [id_cliente], references: [id_cliente])
+  funcionario             Funcionario  @relation(fields: [id_funcionario], references: [id_funcionario])
+  parcelas                Parcela[]
+
+  @@map("divida")
+}
+
+// ─── Parcela ─────────────────────────────────────────────────
+model Parcela {
+  id_parcela           Int           @id @default(autoincrement())
+  id_divida            Int
+  numero               Int
+  valor_parcela        Decimal       @db.Decimal(10, 2)
+  valor_pago_acumulado Decimal       @default(0) @db.Decimal(10, 2)
+  data_vencimento      DateTime      @db.Date
+  status               StatusParcela @default(pendente)
+
+  divida               Divida        @relation(fields: [id_divida], references: [id_divida])
+  pagamentos           Pagamento[]
+
+  @@unique([id_divida, numero], name: "uq_parcela_numero")
+  @@index([id_divida], name: "idx_parcela_divida")
+  @@map("parcela")
+}
+
+// ─── Pagamento ───────────────────────────────────────────────
+model Pagamento {
+  id_pagamento    Int            @id @default(autoincrement())
+  id_parcela      Int
+  data_pagamento  DateTime       @db.Date
+  valor_pago      Decimal        @db.Decimal(10, 2)
+  forma_pagamento FormaPagamento
+  observacao      String?        @db.Text
+
+  parcela         Parcela        @relation(fields: [id_parcela], references: [id_parcela])
+
+  @@index([id_parcela], name: "idx_pagamento_parcela")
+  @@map("pagamento")
+}
+
+// ─── Enums ───────────────────────────────────────────────────
+enum PapelEnum {
+  admin
+  atendente
+}
+
+enum StatusDivida {
+  ativa
+  quitada
+  atrasada
+}
+
+enum StatusParcela {
+  pendente
+  paga
+  atrasada
+  parcial
+}
+
+enum FormaPagamento {
+  dinheiro
+  pix
+  debito
+  credito
+}

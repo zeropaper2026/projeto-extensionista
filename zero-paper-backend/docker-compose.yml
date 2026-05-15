@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+
+  # ── Banco de Dados PostgreSQL ──────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: zeropaper_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: zeropaper
+      POSTGRES_PASSWORD: zeropaper123
+      POSTGRES_DB: zero_paper
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zeropaper -d zero_paper"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend Node.js ───────────────────────────────────────
+  backend:
+    build: .
+    container_name: zeropaper_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://zeropaper:zeropaper123@db:5432/zero_paper
+      JWT_SECRET: zero_paper_secret_troque_em_producao
+      JWT_EXPIRES_IN: 8h
+      PORT: 3333
+      NODE_ENV: development
+    ports:
+      - "3333:3333"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev
+
+volumes:
+  postgres_data:

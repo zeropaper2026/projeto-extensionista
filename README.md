@@ -176,3 +176,5 @@ A aplicação estará disponível em: `http://localhost:5173`
 |----------|--------------------------------------|--------|
 | Sprint 1 | Banco de dados + API REST completa   | ✅ Concluído |
 | Sprint 2 | Frontend React (Login + Cadastro)    | ✅ Concluído |
+| Sprint 3 | Cadastro de Dívidas                  | ✅ Concluído |
+

@@ -2,11 +2,12 @@
 // Zero Paper – Layout global com navbar e guard de autenticação
 // Usado por todas as rotas protegidas
 
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth }   from "../contexts/AuthContext";
 
 export default function Layout({ children }) {
   const { auth, logout } = useAuth();
+  const navigate = useNavigate();
 
   // Guard: redireciona para /login se não autenticado
   if (!auth) return <Navigate to="/login" replace />;
@@ -21,6 +22,9 @@ export default function Layout({ children }) {
             <span className="zp-brand-sub">ZERO</span>
             <span className="zp-brand-name">PAPER</span>
           </div>
+          <button className="zp-navbar-btn zp-home-btn" onClick={() => navigate("/clientes")}>
+            🏠 Início
+          </button>
         </div>
 
         <div className="zp-navbar-right">
@@ -33,7 +37,7 @@ export default function Layout({ children }) {
         </div>
       </nav>
 
-      {/* Conteúdo da página */}
+      {/* Conteúdo da página — sem padding aqui, cada página gerencia o seu */}
       <main className="zp-layout-main">
         {children}
       </main>
@@ -41,7 +45,6 @@ export default function Layout({ children }) {
       {/* Rodapé decorativo */}
       <div className="zp-footer-bar" />
 
-      {/* Estilos globais do layout (não usamos Tailwind nas partes do Design System original) */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=DM+Sans:wght@400;500&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -70,8 +73,9 @@ export default function Layout({ children }) {
           font-family:'DM Sans',sans-serif;transition:.15s;
         }
         .zp-navbar-btn:hover{background:rgba(255,255,255,.18);color:#fff}
-        .zp-layout-main{flex:1;padding:2.5rem 1.5rem}
-        .zp-footer-bar{height:12px;background:linear-gradient(90deg,var(--navy) 0%,var(--teal) 50%,#2e7d52 100%)}
+        .zp-home-btn{margin-left:.5rem}
+        .zp-layout-main{flex:1}
+        .zp-footer-bar{height:12px;background:linear-gradient(90deg,var(--navy) 0%,var(--teal) 50%,#2e7d52 100%);flex-shrink:0}
       `}</style>
     </div>
   );

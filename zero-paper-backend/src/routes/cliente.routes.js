@@ -14,18 +14,32 @@ router.use(autenticar);
 
 // ── GET /clientes ─────────────────────────────────────────────
 router.get('/', async (req, res) => {
-  const { nome, cpf } = req.query;
+  const { q } = req.query;
 
   try {
+    const termo = q ? q.trim() : '';
+
     const clientes = await prisma.cliente.findMany({
-      where: {
-        ...(nome && { nome: { contains: nome } }),
-        ...(cpf  && { cpf:  { contains: cpf.replace(/\D/g, '') } }),
-      },
+      where: termo
+        ? {
+            OR: [
+              { nome: { contains: termo, mode: 'insensitive' } },
+              { cpf:  { contains: termo.replace(/\D/g, '') } },
+            ],
+          }
+        : undefined,
       orderBy: { nome: 'asc' },
     });
 
-    return res.json(clientes);
+    // Filtro extra no Node caso o banco não suporte mode:'insensitive' (ex: SQLite)
+    const resultado = termo
+      ? clientes.filter(c =>
+          c.nome.toLowerCase().includes(termo.toLowerCase()) ||
+          c.cpf.includes(termo.replace(/\D/g, ''))
+        )
+      : clientes;
+
+    return res.json(resultado);
   } catch (error) {
     console.error('[CLIENTE] Erro ao buscar:', error);
     return res.status(500).json({ erro: 'Erro ao buscar clientes.' });

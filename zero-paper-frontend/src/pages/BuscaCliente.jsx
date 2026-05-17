@@ -76,13 +76,6 @@ export default function BuscaCliente() {
 
         {/* Cabeçalho */}
         <div className="flex items-center gap-3 mb-6">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 rounded-lg hover:bg-gray-200 text-gray-500 transition-colors"
-            aria-label="Voltar"
-          >
-            ←
-          </button>
           <div className="flex-1">
             <h1 className="text-xl font-semibold text-gray-900">Buscar cliente</h1>
             <p className="text-sm text-gray-500">Pesquise por nome ou CPF</p>

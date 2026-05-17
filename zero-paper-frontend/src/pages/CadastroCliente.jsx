@@ -83,7 +83,7 @@ export default function CadastroCliente() {
   return (
     <div className="zp-cc-wrap">
       <style>{`
-        .zp-cc-wrap{display:flex;justify-content:center}
+        .zp-cc-wrap{display:flex;justify-content:center;align-items:center;min-height:calc(100vh - 76px);padding:2rem 1rem}
         .zp-cc-card{width:100%;max-width:600px;background:#fff;border-radius:16px;padding:2.5rem;border:1px solid #e2e8f0;box-shadow:0 4px 24px rgba(0,0,0,.06)}
         .zp-cc-head{margin-bottom:2rem}
         .zp-cc-head h1{font-family:'Sora',sans-serif;font-size:22px;font-weight:600;color:#0d2340;margin-bottom:4px}

@@ -144,7 +144,7 @@ async function main() {
   console.log('\n🎉 Seed concluído com sucesso!\n');
   console.log('📋 Credenciais de acesso:');
   console.log('   Admin     → login: admin      | senha: admin123');
-  console.log('   Atendente → login: joao.silva | senha: atend123');
+  console.log('   Atendente → login:aline.almeida | senha: atend123');
 }
 
 main()

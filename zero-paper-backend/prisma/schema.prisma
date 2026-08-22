@@ -39,6 +39,8 @@ model Divida {
   id_divida               Int          @id @default(autoincrement())
   id_cliente              Int
   id_funcionario          Int
+  valor_base              Decimal      @db.Decimal(10, 2)
+  taxa_aplicada           Decimal      @db.Decimal(5, 4)
   valor_total             Decimal      @db.Decimal(10, 2)
   data_registro           DateTime     @db.Date
   descricao_produto       String       @db.VarChar(255)

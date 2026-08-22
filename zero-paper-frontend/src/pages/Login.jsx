@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
+import biosLogo from "../assets/bios-logo.jpg";
 
 export default function Login() {
   const { login } = useAuth();
@@ -49,13 +50,14 @@ export default function Login() {
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=DM+Sans:wght@400;500&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
         :root{
-          --navy:#0d2340;--teal:#1a7a6e;--teal-light:#22a090;--green:#2e7d52;
+          --navy:#000000;--teal:#414A85;--teal-light:#50588f;--green:#2c325a;
           --white:#fff;--g50:#f8fafc;--g200:#e2e8f0;--g400:#94a3b8;--g600:#475569;
           --red:#dc2626;--red-l:#fef2f2;
         }
         .zp-login-root{min-height:100vh;font-family:'DM Sans',sans-serif;display:flex;flex-direction:column;background:var(--white);overflow-x:hidden}
         .zp-header{background:var(--navy);padding:0 2rem;height:64px;display:flex;align-items:center;gap:1rem}
         .zp-logo-box{width:44px;height:44px;background:var(--teal);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px}
+        .zp-logo-img{width:44px;height:44px;border-radius:8px;object-fit:cover;flex-shrink:0}
         .zp-brand{color:var(--white);font-family:'Sora',sans-serif}
         .zp-brand span{display:block}
         .zp-brand .top{font-size:10px;font-weight:300;letter-spacing:3px;opacity:.7;text-transform:uppercase}
@@ -83,10 +85,10 @@ export default function Login() {
       `}</style>
 
       <header className="zp-header">
-        <div className="zp-logo-box">📱</div>
+        <img src={biosLogo} alt="BIOS iPhones" className="zp-logo-img" />
         <div className="zp-brand">
-          <span className="top">ZERO</span>
-          <span className="bot">PAPER</span>
+          <span className="top">BIOS</span>
+          <span className="bot">IPHONES</span>
         </div>
       </header>
 

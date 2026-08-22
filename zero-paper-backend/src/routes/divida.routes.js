@@ -7,6 +7,7 @@
 const router     = require('express').Router();
 const prisma     = require('../lib/prisma');
 const autenticar = require('../middlewares/autenticar');
+const { calcularValorComJuros, PARCELAS_MAXIMO } = require('../constants/taxasJuros');
 
 router.use(autenticar);
 
@@ -14,7 +15,7 @@ router.use(autenticar);
 router.post('/', async (req, res) => {
   const {
     id_cliente,
-    valor_total,
+    valor_base,
     descricao_produto,
     imei,
     informacoes_adicionais,
@@ -23,13 +24,27 @@ router.post('/', async (req, res) => {
   } = req.body;
 
   // Validações básicas
-  if (!id_cliente || !valor_total || !descricao_produto || !parcelas_total) {
+  if (!id_cliente || !valor_base || !descricao_produto || !parcelas_total) {
     return res.status(400).json({
-      erro: 'Campos obrigatórios: id_cliente, valor_total, descricao_produto, parcelas_total.',
+      erro: 'Campos obrigatórios: id_cliente, valor_base, descricao_produto, parcelas_total.',
     });
   }
-  if (valor_total <= 0 || parcelas_total <= 0) {
-    return res.status(400).json({ erro: 'Valor total e parcelas devem ser maiores que zero.' });
+  if (valor_base <= 0 || parcelas_total <= 0) {
+    return res.status(400).json({ erro: 'Valor base e parcelas devem ser maiores que zero.' });
+  }
+  if (parcelas_total > PARCELAS_MAXIMO) {
+    return res.status(400).json({
+      erro: `O parcelamento é permitido em no máximo ${PARCELAS_MAXIMO}x.`,
+    });
+  }
+
+  // Calcula valor com juros conforme a faixa de parcelas
+  let valorBase, taxaAplicada, valorTotal;
+  try {
+    ({ valorBase, taxaAplicada, valorTotalComJuros: valorTotal } =
+      calcularValorComJuros(valor_base, parcelas_total));
+  } catch (err) {
+    return res.status(400).json({ erro: err.message });
   }
 
   try {
@@ -39,11 +54,11 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ erro: 'Cliente não encontrado.' });
     }
 
-    // Calcula valor por parcela
-    const valorParcela = parseFloat((valor_total / parcelas_total).toFixed(2));
+    // Calcula valor por parcela (sobre o valor já com juros)
+    const valorParcela = parseFloat((valorTotal / parcelas_total).toFixed(2));
     // Ajuste de centavos na última parcela
     const valorUltima  = parseFloat(
-      (valor_total - valorParcela * (parcelas_total - 1)).toFixed(2)
+      (valorTotal - valorParcela * (parcelas_total - 1)).toFixed(2)
     );
 
     // Data de vencimento base (padrão: daqui 1 mês)
@@ -67,7 +82,9 @@ router.post('/', async (req, res) => {
       data: {
         id_cliente,
         id_funcionario:        req.funcionario.id,
-        valor_total,
+        valor_base:            valorBase,
+        taxa_aplicada:         taxaAplicada,
+        valor_total:           valorTotal,
         data_registro:         new Date(),
         descricao_produto,
         imei:                  imei ?? null,

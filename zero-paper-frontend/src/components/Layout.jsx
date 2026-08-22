@@ -4,6 +4,7 @@
 
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth }   from "../contexts/AuthContext";
+import biosLogo from "../assets/bios-logo.jpg";
 
 export default function Layout({ children }) {
   const { auth, logout } = useAuth();
@@ -17,10 +18,10 @@ export default function Layout({ children }) {
       {/* Navbar global */}
       <nav className="zp-navbar">
         <div className="zp-navbar-brand">
-          <div className="zp-brand-icon">📱</div>
+          <img src={biosLogo} alt="BIOS iPhones" className="zp-brand-logo" />
           <div>
-            <span className="zp-brand-sub">ZERO</span>
-            <span className="zp-brand-name">PAPER</span>
+            <span className="zp-brand-sub">BIOS</span>
+            <span className="zp-brand-name">IPHONES</span>
           </div>
           <button className="zp-navbar-btn zp-home-btn" onClick={() => navigate("/clientes")}>
             🏠 Início
@@ -63,6 +64,7 @@ export default function Layout({ children }) {
           width:38px;height:38px;background:var(--teal);border-radius:7px;
           display:flex;align-items:center;justify-content:center;font-size:18px;
         }
+        .zp-brand-logo{width:38px;height:38px;border-radius:7px;object-fit:cover;flex-shrink:0}
         .zp-brand-sub{display:block;font-size:9px;font-weight:400;letter-spacing:3px;color:rgba(255,255,255,.55);text-transform:uppercase;font-family:'Sora',sans-serif}
         .zp-brand-name{display:block;font-size:16px;font-weight:700;color:#fff;line-height:1;font-family:'Sora',sans-serif}
         .zp-navbar-right{display:flex;align-items:center;gap:1rem}

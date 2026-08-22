@@ -126,7 +126,7 @@ export default function RegistrarPagamento() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-gray-400">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-bios-primary-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-sm">Carregando parcelas…</p>
         </div>
       </div>
@@ -184,12 +184,12 @@ export default function RegistrarPagamento() {
                       <button
                         type="button"
                         onClick={() => selecionarParcela(p)}
-                        className={`w-full flex items-center gap-3 py-3 px-3 rounded-xl text-left transition-all ${selecionada ? "bg-blue-50 ring-1 ring-blue-400" : "hover:bg-gray-50"}`}
+                        className={`w-full flex items-center gap-3 py-3 px-3 rounded-xl text-left transition-all ${selecionada ? "bg-bios-primary-50 ring-1 ring-bios-primary-400" : "hover:bg-gray-50"}`}
                       >
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${selecionada ? "border-blue-500 bg-blue-500" : "border-gray-300"}`}>
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${selecionada ? "border-bios-primary-500 bg-bios-primary-500" : "border-gray-300"}`}>
                           {selecionada && <div className="w-2 h-2 rounded-full bg-white" />}
                         </div>
-                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${selecionada ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500"}`}>{p.numero}</span>
+                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${selecionada ? "bg-bios-primary-600 text-white" : "bg-gray-100 text-gray-500"}`}>{p.numero}</span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-semibold text-gray-800">{formatBRL(p.valor_parcela)}</span>
@@ -233,7 +233,7 @@ export default function RegistrarPagamento() {
                     inputMode="decimal"
                     value={valorPago}
                     onChange={(e) => { setValorPago(e.target.value); setErros(p => ({ ...p, valorPago: undefined })); }}
-                    className={`w-full h-10 px-3 rounded-xl border text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 ${erros.valorPago ? "border-red-400" : "border-gray-300"}`}
+                    className={`w-full h-10 px-3 rounded-xl border text-sm bg-gray-50 focus:ring-2 focus:ring-bios-primary-500 ${erros.valorPago ? "border-red-400" : "border-gray-300"}`}
                   />
                   {erros.valorPago && <p className="text-xs text-red-500 mt-1">{erros.valorPago}</p>}
                   <button
@@ -242,7 +242,7 @@ export default function RegistrarPagamento() {
                       const restante = parcelaSelecionada.valor_parcela - (parcelaSelecionada.valor_pago_acumulado ?? 0);
                       setValorPago(String((restante > 0 ? restante : parcelaSelecionada.valor_parcela).toFixed(2)));
                     }}
-                    className="text-xs text-blue-500 hover:underline mt-1"
+                    className="text-xs text-bios-primary-500 hover:underline mt-1"
                   >
                     Usar valor da parcela ({formatBRL(parcelaSelecionada.valor_parcela - (parcelaSelecionada.valor_pago_acumulado ?? 0))})
                   </button>
@@ -253,7 +253,7 @@ export default function RegistrarPagamento() {
                     value={observacao}
                     onChange={(e) => setObservacao(e.target.value)}
                     rows={2}
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm bg-gray-50 focus:ring-2 focus:ring-bios-primary-500"
                   />
                 </div>
               </div>
@@ -265,7 +265,7 @@ export default function RegistrarPagamento() {
                       key={f.value}
                       type="button"
                       onClick={() => setFormaPagamento(f.value)}
-                      className={`flex flex-col items-center gap-1 py-3 rounded-xl border text-xs font-medium transition-all ${formaPagamento === f.value ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500" : "border-gray-200 bg-gray-50 text-gray-500"}`}
+                      className={`flex flex-col items-center gap-1 py-3 rounded-xl border text-xs font-medium transition-all ${formaPagamento === f.value ? "border-bios-primary-500 bg-bios-primary-50 text-bios-primary-700 ring-1 ring-bios-primary-500" : "border-gray-200 bg-gray-50 text-gray-500"}`}
                     >
                       <span className="text-xl">{f.icon}</span>
                       {f.label}

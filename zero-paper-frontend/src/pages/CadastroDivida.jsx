@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../services/api";           // axios instance com Bearer JWT
 import { formatBRL, parseBRL } from "../utils/currency";
 import { addMonths, formatDateBR, toISODate } from "../utils/date";
+import { obterTaxaJuros, PARCELAS_MAXIMO } from "../constants/taxasJuros";
 
 // ─── constantes alinhadas com os ENUMs do banco ────────────────────────────
 const FORMAS_PAGAMENTO = [
@@ -32,7 +33,7 @@ export default function CadastroDivida() {
   const [imei, setImei]                 = useState("");
   const [infoAdicionais, setInfoAdicionais] = useState("");
 
-  const [valorTotal, setValorTotal]     = useState("");
+  const [valorBase, setValorBase]       = useState(""); // valor sem juros, informado pelo atendente
   const [numParcelas, setNumParcelas]   = useState("");
   const [dataPrimeira, setDataPrimeira] = useState(toISODate(new Date()));
   const [formaPagamento, setFormaPagamento] = useState("dinheiro");
@@ -75,11 +76,19 @@ export default function CadastroDivida() {
     }, 350);
   }, [clienteQuery]);
 
-  // ── parcelas calculadas (preview) ────────────────────────────────────────
+  // ── taxa aplicável e valor com juros (preview) ───────────────────────────
+  const nParcelasPreview = parseInt(numParcelas, 10);
+  const taxaAplicada     = nParcelasPreview ? obterTaxaJuros(nParcelasPreview) : null;
+  const valorBaseNum     = parseFloat(valorBase.replace(",", "."));
+  const valorComJuros    = (valorBaseNum > 0 && taxaAplicada !== null)
+    ? +(valorBaseNum * (1 + taxaAplicada)).toFixed(2)
+    : null;
+
+  // ── parcelas calculadas (preview) — sobre o valor já com juros ──────────
   const parcelas = (() => {
-    const valor = parseFloat(valorTotal.replace(",", "."));
-    const n     = parseInt(numParcelas, 10);
-    if (!valor || valor <= 0 || !n || n < 1 || !dataPrimeira) return [];
+    const valor = valorComJuros;
+    const n     = nParcelasPreview;
+    if (!valor || valor <= 0 || !n || n < 1 || n > PARCELAS_MAXIMO || !dataPrimeira) return [];
     const valorParc = +(valor / n).toFixed(2);
     const ajuste    = +(valor - valorParc * n).toFixed(2); // centavos de arredondamento
     return Array.from({ length: n }, (_, i) => ({
@@ -95,10 +104,10 @@ export default function CadastroDivida() {
     const e = {};
     if (!clienteSelecionado)               e.cliente    = "Selecione um cliente.";
     if (!produto.trim())                   e.produto    = "Descrição obrigatória.";
-    const v = parseFloat(valorTotal.replace(",", "."));
-    if (!v || v <= 0)                      e.valorTotal = "Informe um valor maior que zero.";
+    const v = parseFloat(valorBase.replace(",", "."));
+    if (!v || v <= 0)                      e.valorBase  = "Informe um valor maior que zero.";
     const p = parseInt(numParcelas, 10);
-    if (!p || p < 1 || p > 60)            e.numParcelas = "Informe entre 1 e 60 parcelas.";
+    if (!p || p < 1 || p > PARCELAS_MAXIMO) e.numParcelas = `Informe entre 1 e ${PARCELAS_MAXIMO} parcelas.`;
     if (!dataPrimeira)                     e.dataPrimeira = "Informe a data da 1ª parcela.";
     setErros(e);
     return Object.keys(e).length === 0;
@@ -116,7 +125,7 @@ export default function CadastroDivida() {
         descricao_produto:      produto.trim(),
         imei:                   imei.trim() || null,
         informacoes_adicionais: infoAdicionais.trim() || null,
-        valor_total:            parseFloat(valorTotal.replace(",", ".")),
+        valor_base:             parseFloat(valorBase.replace(",", ".")),
         parcelas_total:         parseInt(numParcelas, 10),
         data_registro:          toISODate(new Date()),
         data_primeira_parcela:  dataPrimeira,
@@ -146,7 +155,7 @@ export default function CadastroDivida() {
     setProduto("");
     setImei("");
     setInfoAdicionais("");
-    setValorTotal("");
+    setValorBase("");
     setNumParcelas("");
     setDataPrimeira(toISODate(new Date()));
     setFormaPagamento("dinheiro");
@@ -195,22 +204,22 @@ export default function CadastroDivida() {
 
             {clienteSelecionado ? (
               /* Badge do cliente selecionado */
-              <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
-                <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
+              <div className="flex items-center gap-3 bg-bios-primary-50 border border-bios-primary-200 rounded-xl px-4 py-3">
+                <div className="w-9 h-9 rounded-full bg-bios-primary-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
                   {clienteSelecionado.nome.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-blue-900 text-sm truncate">
+                  <p className="font-semibold text-bios-primary-900 text-sm truncate">
                     {clienteSelecionado.nome}
                   </p>
-                  <p className="text-xs text-blue-600">
+                  <p className="text-xs text-bios-primary-600">
                     CPF: {clienteSelecionado.cpf} · {clienteSelecionado.telefone}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => { setClienteSelecionado(null); setClienteQuery(""); }}
-                  className="text-blue-400 hover:text-blue-700 text-lg leading-none"
+                  className="text-bios-primary-400 hover:text-bios-primary-700 text-lg leading-none"
                   aria-label="Remover cliente selecionado"
                 >
                   ✕
@@ -230,7 +239,7 @@ export default function CadastroDivida() {
                     onChange={(e) => setClienteQuery(e.target.value)}
                     placeholder="Ex.: João Silva ou 000.000.000-00"
                     autoComplete="off"
-                    className={`w-full h-10 px-3 pr-9 rounded-xl border text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition
+                    className={`w-full h-10 px-3 pr-9 rounded-xl border text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-bios-primary-500 focus:bg-white transition
                       ${erros.cliente ? "border-red-400" : "border-gray-300"}`}
                   />
                   {loadingCliente && (
@@ -256,7 +265,7 @@ export default function CadastroDivida() {
                             setClienteSugestoes([]);
                             setErros((prev) => ({ ...prev, cliente: undefined }));
                           }}
-                          className="w-full text-left px-4 py-2.5 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                          className="w-full text-left px-4 py-2.5 hover:bg-bios-primary-50 border-b border-gray-100 last:border-b-0 transition-colors"
                         >
                           <p className="text-sm font-medium text-gray-800">{c.nome}</p>
                           <p className="text-xs text-gray-500">CPF: {c.cpf} · {c.telefone}</p>
@@ -287,7 +296,7 @@ export default function CadastroDivida() {
                   value={produto}
                   onChange={(e) => { setProduto(e.target.value); setErros((p) => ({ ...p, produto: undefined })); }}
                   placeholder="Ex.: iPhone 14 128GB Preto"
-                  className={`w-full h-10 px-3 rounded-xl border text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition
+                  className={`w-full h-10 px-3 rounded-xl border text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-bios-primary-500 focus:bg-white transition
                     ${erros.produto ? "border-red-400" : "border-gray-300"}`}
                 />
                 {erros.produto && <p className="text-xs text-red-500 mt-1">{erros.produto}</p>}
@@ -305,7 +314,7 @@ export default function CadastroDivida() {
                   onChange={(e) => setImei(e.target.value)}
                   placeholder="Ex.: 353211234567890"
                   maxLength={30}
-                  className="w-full h-10 px-3 rounded-xl border border-gray-300 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+                  className="w-full h-10 px-3 rounded-xl border border-gray-300 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-bios-primary-500 focus:bg-white transition"
                 />
               </div>
 
@@ -320,7 +329,7 @@ export default function CadastroDivida() {
                   onChange={(e) => setInfoAdicionais(e.target.value)}
                   placeholder="Acessórios, estado do produto, observações..."
                   rows={3}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition resize-none"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-bios-primary-500 focus:bg-white transition resize-none"
                 />
               </div>
             </div>
@@ -333,41 +342,47 @@ export default function CadastroDivida() {
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {/* Valor total */}
+              {/* Valor base (sem juros) */}
               <div>
-                <label className="block text-sm text-gray-600 mb-1" htmlFor="valorTotal">
-                  Valor total (R$) <span className="text-red-500">*</span>
+                <label className="block text-sm text-gray-600 mb-1" htmlFor="valorBase">
+                  Valor do produto (R$) <span className="text-red-500">*</span>
                 </label>
                 <input
-                  id="valorTotal"
+                  id="valorBase"
                   type="text"
                   inputMode="decimal"
-                  value={valorTotal}
-                  onChange={(e) => { setValorTotal(e.target.value); setErros((p) => ({ ...p, valorTotal: undefined })); }}
+                  value={valorBase}
+                  onChange={(e) => { setValorBase(e.target.value); setErros((p) => ({ ...p, valorBase: undefined })); }}
                   placeholder="0,00"
-                  className={`w-full h-10 px-3 rounded-xl border text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition
-                    ${erros.valorTotal ? "border-red-400" : "border-gray-300"}`}
+                  className={`w-full h-10 px-3 rounded-xl border text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-bios-primary-500 focus:bg-white transition
+                    ${erros.valorBase ? "border-red-400" : "border-gray-300"}`}
                 />
-                {erros.valorTotal && <p className="text-xs text-red-500 mt-1">{erros.valorTotal}</p>}
+                {erros.valorBase && <p className="text-xs text-red-500 mt-1">{erros.valorBase}</p>}
+                <p className="text-xs text-gray-400 mt-1">Valor sem juros — a taxa é aplicada automaticamente.</p>
               </div>
 
               {/* Nº parcelas */}
               <div>
                 <label className="block text-sm text-gray-600 mb-1" htmlFor="numParcelas">
-                  Parcelas <span className="text-red-500">*</span>
+                  Parcelas (máx. {PARCELAS_MAXIMO}x) <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="numParcelas"
                   type="number"
                   min={1}
-                  max={60}
+                  max={PARCELAS_MAXIMO}
                   value={numParcelas}
                   onChange={(e) => { setNumParcelas(e.target.value); setErros((p) => ({ ...p, numParcelas: undefined })); }}
                   placeholder="Ex.: 6"
-                  className={`w-full h-10 px-3 rounded-xl border text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition
+                  className={`w-full h-10 px-3 rounded-xl border text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-bios-primary-500 focus:bg-white transition
                     ${erros.numParcelas ? "border-red-400" : "border-gray-300"}`}
                 />
                 {erros.numParcelas && <p className="text-xs text-red-500 mt-1">{erros.numParcelas}</p>}
+                {taxaAplicada !== null && (
+                  <p className="text-xs text-bios-primary-700 mt-1 font-medium">
+                    Taxa aplicada: {(taxaAplicada * 100).toFixed(0)}%
+                  </p>
+                )}
               </div>
 
               {/* Data 1ª parcela */}
@@ -380,7 +395,7 @@ export default function CadastroDivida() {
                   type="date"
                   value={dataPrimeira}
                   onChange={(e) => { setDataPrimeira(e.target.value); setErros((p) => ({ ...p, dataPrimeira: undefined })); }}
-                  className={`w-full h-10 px-3 rounded-xl border text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition
+                  className={`w-full h-10 px-3 rounded-xl border text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-bios-primary-500 focus:bg-white transition
                     ${erros.dataPrimeira ? "border-red-400" : "border-gray-300"}`}
                 />
                 {erros.dataPrimeira && <p className="text-xs text-red-500 mt-1">{erros.dataPrimeira}</p>}
@@ -398,7 +413,7 @@ export default function CadastroDivida() {
                     onClick={() => setFormaPagamento(f.value)}
                     className={`flex flex-col items-center gap-1 py-3 rounded-xl border text-xs font-medium transition-all
                       ${formaPagamento === f.value
-                        ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500"
+                        ? "border-bios-primary-500 bg-bios-primary-50 text-bios-primary-700 ring-1 ring-bios-primary-500"
                         : "border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-300 hover:bg-gray-100"
                       }`}
                   >
@@ -418,11 +433,12 @@ export default function CadastroDivida() {
               </h2>
 
               {/* Resumo */}
-              <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                 {[
-                  { label: "Valor total", val: formatBRL(parseFloat(valorTotal.replace(",", "."))) },
-                  { label: "Nº parcelas", val: `${parcelas.length}×` },
-                  { label: "Por parcela",  val: formatBRL(parcelas[0]?.valor_parcela) },
+                  { label: "Valor do produto", val: formatBRL(valorBaseNum) },
+                  { label: "Juros",            val: `${(taxaAplicada * 100).toFixed(0)}%` },
+                  { label: "Total com juros",  val: formatBRL(valorComJuros) },
+                  { label: "Por parcela",      val: `${parcelas.length}× ${formatBRL(parcelas[0]?.valor_parcela)}` },
                 ].map((s) => (
                   <div key={s.label} className="bg-gray-50 rounded-xl p-3">
                     <p className="text-xs text-gray-400 uppercase tracking-wide">{s.label}</p>
@@ -468,7 +484,7 @@ export default function CadastroDivida() {
             <button
               type="submit"
               disabled={salvando}
-              className="px-6 h-10 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-6 h-10 rounded-xl bg-bios-primary-600 text-white text-sm font-semibold hover:bg-bios-primary-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {salvando ? (
                 <>

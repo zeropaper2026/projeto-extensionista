@@ -49,7 +49,7 @@ export default function Layout({ children }) {
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=DM+Sans:wght@400;500&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
         :root{
-          --navy:#0d2340;--teal:#1a7a6e;--teal-h:#22a090;
+          --navy:#000000;--teal:#414A85;--teal-h:#50588f;
           --white:#fff;--g50:#f8fafc;--g200:#e2e8f0;
         }
         body{font-family:'DM Sans',sans-serif;background:var(--g50)}
@@ -75,7 +75,7 @@ export default function Layout({ children }) {
         .zp-navbar-btn:hover{background:rgba(255,255,255,.18);color:#fff}
         .zp-home-btn{margin-left:.5rem}
         .zp-layout-main{flex:1}
-        .zp-footer-bar{height:12px;background:linear-gradient(90deg,var(--navy) 0%,var(--teal) 50%,#2e7d52 100%);flex-shrink:0}
+        .zp-footer-bar{height:12px;background:linear-gradient(90deg,var(--navy) 0%,var(--teal) 100%);flex-shrink:0}
       `}</style>
     </div>
   );

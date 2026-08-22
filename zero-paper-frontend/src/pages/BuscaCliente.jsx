@@ -58,7 +58,7 @@ export default function BuscaCliente() {
 
   // cores do avatar por inicial (A-Z → 6 opções)
   const AVATAR_CORES = [
-    "bg-blue-100 text-blue-800",
+    "bg-bios-primary-100 text-bios-primary-800",
     "bg-purple-100 text-purple-800",
     "bg-green-100 text-green-800",
     "bg-amber-100 text-amber-800",
@@ -82,7 +82,7 @@ export default function BuscaCliente() {
           </div>
           <Link
             to="/clientes/novo"
-            className="px-4 h-9 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition flex items-center gap-1"
+            className="px-4 h-9 rounded-xl bg-bios-primary-600 text-white text-sm font-medium hover:bg-bios-primary-700 transition flex items-center gap-1"
           >
             + Novo cliente
           </Link>
@@ -99,7 +99,7 @@ export default function BuscaCliente() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Nome completo ou CPF (ex.: João Silva, 000.000.000-00)"
-            className="w-full h-11 pl-9 pr-10 rounded-xl border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+            className="w-full h-11 pl-9 pr-10 rounded-xl border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-bios-primary-500 focus:border-transparent shadow-sm"
           />
           {query && (
             <button
@@ -115,7 +115,7 @@ export default function BuscaCliente() {
         {/* Estado: loading */}
         {loading && (
           <div className="flex items-center gap-3 text-gray-400 px-1 py-4">
-            <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-bios-primary-400 border-t-transparent rounded-full animate-spin" />
             <span className="text-sm">Buscando…</span>
           </div>
         )}
@@ -134,7 +134,7 @@ export default function BuscaCliente() {
             <p className="font-medium text-gray-600">Nenhum cliente encontrado</p>
             <p className="text-sm text-gray-400 mt-1">
               Tente outro nome ou CPF, ou{" "}
-              <Link to="/clientes/novo" className="text-blue-600 hover:underline">
+              <Link to="/clientes/novo" className="text-bios-primary-600 hover:underline">
                 cadastre um novo cliente
               </Link>
               .
@@ -184,7 +184,7 @@ export default function BuscaCliente() {
 
                     {/* Ação */}
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs text-blue-600 font-medium hidden sm:block">
+                      <span className="text-xs text-bios-primary-600 font-medium hidden sm:block">
                         Ver dívidas
                       </span>
                       <span className="text-gray-300 text-lg">›</span>

@@ -46,7 +46,7 @@ function CardDivida({ divida }) {
             <span className="text-xs text-gray-400">{pagas}/{total} parcelas pagas · Reg.: {formatDateBR(new Date(divida.data_registro))}</span>
           </div>
           <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden w-full">
-            <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${progresso}%` }} />
+            <div className="h-full bg-bios-primary-500 rounded-full transition-all" style={{ width: `${progresso}%` }} />
           </div>
         </div>
         <span className="text-gray-400 text-lg mt-1">{aberto ? "▲" : "▼"}</span>
@@ -73,7 +73,7 @@ function CardDivida({ divida }) {
                 navigate(`/dividas/${divida.id_divida}/pagar`);
               }
             }}
-            className="mt-3 w-full h-9 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+            className="mt-3 w-full h-9 rounded-xl bg-bios-primary-600 text-white text-sm font-medium hover:bg-bios-primary-700"
           >
             Registrar pagamento
           </button>
@@ -134,7 +134,7 @@ export default function ListaDividas() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-gray-400">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-bios-primary-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-sm">Carregando dívidas…</p>
         </div>
       </div>
@@ -166,7 +166,7 @@ export default function ListaDividas() {
             <h1 className="text-xl font-semibold text-gray-900">{cliente?.nome ?? "Cliente"}</h1>
             <p className="text-sm text-gray-500">CPF: {cliente?.cpf ?? "---"}</p>
           </div>
-          <Link to="/dividas/nova" className="px-4 h-9 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 flex items-center gap-1">
+          <Link to="/dividas/nova" className="px-4 h-9 rounded-xl bg-bios-primary-600 text-white text-sm font-medium hover:bg-bios-primary-700 flex items-center gap-1">
             + Nova dívida
           </Link>
         </div>

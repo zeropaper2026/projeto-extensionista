@@ -174,6 +174,6 @@ A aplicação estará disponível em: `http://localhost:5173`
 
 | Incrmentos   | Entrega                              | Status |
 |--------------|--------------------------------------|--------|
-| Incremento I | Taxa de Juros da maquininha          | ✅ Concluído |
+| Incremento I | Taxa de Juros da maquininha          | ⌛ Em andamento |
 
 

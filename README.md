@@ -16,13 +16,13 @@ PROJETOEXTENSIONISTA/
 
 ## 🧱 Tecnologias
 
-| Camada      | Tecnologia                              |
-|-------------|-----------------------------------------|
-| Frontend    | React 18, Vite                          |
-| Backend     | Node.js, Express                        |
-| ORM         | Prisma 5                                |
-| Banco       | PostgreSQL 17 (via Docker)              |
-| Auth        | JWT (jsonwebtoken) + bcryptjs           |
+| Camada      | Tecnologia                                                                          |
+|-------------|-------------------------------------------------------------------------------------|
+| Frontend    | React 18 + Vite + Tailwind CSS 3 + React Router v6 + Axios                          |
+| Backend     | Node.js, Express                                                                    |
+| ORM         | Prisma 5                                                                            |
+| Banco       | PostgreSQL 17 (via Docker)                                                          |
+| Auth        | JWT (jsonwebtoken) + bcryptjs                                                       |
 
 ---
 
@@ -172,9 +172,8 @@ A aplicação estará disponível em: `http://localhost:5173`
 
 ## 📋 Status do Projeto
 
-| Sprint   | Entrega                              | Status |
-|----------|--------------------------------------|--------|
-| Sprint 1 | Banco de dados + API REST completa   | ✅ Concluído |
-| Sprint 2 | Frontend React (Login + Cadastro)    | ✅ Concluído |
-| Sprint 3 | Cadastro de Dívidas                  | ✅ Concluído |
+| Incrmentos   | Entrega                              | Status |
+|--------------|--------------------------------------|--------|
+| Incremento I | Taxa de Juros da maquininha          | ✅ Concluído |
+
 

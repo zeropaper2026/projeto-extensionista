@@ -66,6 +66,8 @@ async function main() {
       id_cliente:    cliente1.id_cliente,
       id_funcionario: atendente.id_funcionario,
       valor_total:    valorTotal,
+      valor_base:     valorTotal, // 🔥 JÁ ADICIONADO
+      taxa_aplicada:  0, // 🔥 NOVO: taxa de juros/multa (0% neste caso)
       data_registro:  new Date(),
       descricao_produto: 'Samsung Galaxy A55 – 128GB',
       imei: '351234567890123',
@@ -114,6 +116,8 @@ async function main() {
       id_cliente:     cliente2.id_cliente,
       id_funcionario: atendente.id_funcionario,
       valor_total:    450.00,
+      valor_base:     450.00, // 🔥 JÁ ADICIONADO
+      taxa_aplicada:  0, // 🔥 NOVO: taxa de juros/multa (0% neste caso)
       data_registro:  vencimentoPassado,
       descricao_produto: 'Moto G54 – 256GB',
       parcelas_total: 2,
@@ -144,7 +148,7 @@ async function main() {
   console.log('\n🎉 Seed concluído com sucesso!\n');
   console.log('📋 Credenciais de acesso:');
   console.log('   Admin     → login: admin      | senha: admin123');
-  console.log('   Atendente → login:aline.almeida | senha: atend123');
+  console.log('   Atendente → login: aline.almeida | senha: atend123');
 }
 
 main()

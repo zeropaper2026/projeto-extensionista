@@ -19,9 +19,8 @@ PROJETOEXTENSIONISTA/
 | Camada      | Tecnologia                                                                          |
 |-------------|-------------------------------------------------------------------------------------|
 | Frontend    | React 18 + Vite + Tailwind CSS 3 + React Router v6 + Axios                          |
-| Backend     | Node.js, Express                                                                    |
-| ORM         | Prisma 5                                                                            |
-| Banco       | PostgreSQL 17 (via Docker)                                                          |
+| Backend     | Node.js + Express + TypeScript                                                      |
+| Banco de Dados |     PostgreSQL 17 (via Docker) + Prisma ORM                                      |
 | Auth        | JWT (jsonwebtoken) + bcryptjs                                                       |
 
 ---

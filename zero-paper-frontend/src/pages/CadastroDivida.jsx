@@ -136,7 +136,7 @@ export default function CadastroDivida() {
       mostrarToast(`Dívida #${data.id_divida} registrada com sucesso!`, "sucesso");
       setTimeout(() => navigate(`/dividas/${clienteSelecionado.id_cliente}`), 2000);
     } catch (err) {
-      const msg = err.response?.data?.message || "Erro ao registrar dívida. Tente novamente.";
+      const msg = err.response?.data?.erro || err.response?.data?.message || "Erro ao registrar dívida. Tente novamente.";
       mostrarToast(msg, "erro");
     } finally {
       setSalvando(false);

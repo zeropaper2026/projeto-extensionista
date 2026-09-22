@@ -2,8 +2,14 @@
 // Zero Paper – Cadastro de Clientes
 // Correções: props auth/onLogout removidas (vêm do Layout/AuthContext),
 //            fetch → axios (api.js), CSS inline movido para <style> isolado
+//
+// 🔥 Incremento (A1): após cadastrar o cliente com sucesso, a tela navega
+//    automaticamente para "Nova dívida" (/dividas/nova), já passando o
+//    cliente recém-criado via state do React Router — elimina o passo
+//    manual de buscar o cliente de novo em CadastroDivida.jsx.
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
 function formatCPF(value) {
@@ -21,6 +27,8 @@ function formatTel(value) {
 }
 
 export default function CadastroCliente() {
+  const navigate = useNavigate();
+
   const [form, setForm]       = useState({ nome: "", cpf: "", telefone: "", endereco: "", email: "" });
   const [errors, setErrors]   = useState({});
   const [loading, setLoading] = useState(false);
@@ -70,6 +78,15 @@ export default function CadastroCliente() {
         email:     form.email.trim()    || undefined,
       });
       setSucesso(data);
+
+      // 🔥 NOVO: após confirmar o cadastro, segue automaticamente para o
+      // formulário de nova dívida com o cliente já selecionado. O pequeno
+      // atraso deixa a mensagem de sucesso visível por um instante antes
+      // do redirecionamento, mantendo o padrão de UX já usado em outras
+      // telas do sistema (toast + navigate com delay).
+      setTimeout(() => {
+        navigate("/dividas/nova", { state: { cliente: data } });
+      }, 1200);
     } catch (err) {
       const msg = err.response?.data?.erro
         || err.response?.data?.message
@@ -178,7 +195,7 @@ export default function CadastroCliente() {
               <span>✅</span>
               <div>
                 <strong>Cliente cadastrado com sucesso!</strong>
-                {sucesso.nome} salvo no banco (ID #{sucesso.id_cliente}).
+                Redirecionando para o cadastro de dívida…
               </div>
             </div>
           )}

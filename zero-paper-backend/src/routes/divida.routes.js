@@ -11,6 +11,9 @@ const { calcularValorComJuros, PARCELAS_MAXIMO } = require('../constants/taxasJu
 
 router.use(autenticar);
 
+// Formas de pagamento válidas (mesmo enum usado em parcela.routes.js)
+const FORMAS_PAGAMENTO_VALIDAS = ['dinheiro', 'pix', 'debito', 'credito'];
+
 // ── POST /dividas ─────────────────────────────────────────────
 router.post('/', async (req, res) => {
   const {
@@ -21,6 +24,7 @@ router.post('/', async (req, res) => {
     informacoes_adicionais,
     parcelas_total,
     data_primeira_parcela, // formato: "YYYY-MM-DD"
+    forma_pagamento,       // 🔥 NOVO: forma de pagamento da venda (dinheiro/pix/debito/credito)
   } = req.body;
 
   // Validações básicas
@@ -38,7 +42,19 @@ router.post('/', async (req, res) => {
     });
   }
 
+  // 🔥 NOVO: valida forma_pagamento (mantém 'dinheiro' como padrão se não enviado,
+  // já que o default do banco existe apenas para o backfill de registros antigos —
+  // toda dívida nova deve enviar a forma explicitamente a partir do frontend).
+  const formaPagamentoFinal = forma_pagamento ?? 'dinheiro';
+  if (!FORMAS_PAGAMENTO_VALIDAS.includes(formaPagamentoFinal)) {
+    return res.status(400).json({
+      erro: `forma_pagamento deve ser: ${FORMAS_PAGAMENTO_VALIDAS.join(', ')}.`,
+    });
+  }
+
   // Calcula valor com juros conforme a faixa de parcelas
+  // (a taxa é aplicada em qualquer venda parcelada, independentemente da forma
+  //  de pagamento — regra confirmada com o cliente Bios/BIOS iPhones)
   let valorBase, taxaAplicada, valorTotal;
   try {
     ({ valorBase, taxaAplicada, valorTotalComJuros: valorTotal } =
@@ -85,6 +101,7 @@ router.post('/', async (req, res) => {
         valor_base:            valorBase,
         taxa_aplicada:         taxaAplicada,
         valor_total:           valorTotal,
+        forma_pagamento:       formaPagamentoFinal, // 🔥 NOVO: persistido no schema
         data_registro:         new Date(),
         descricao_produto,
         imei:                  imei ?? null,

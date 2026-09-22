@@ -3,9 +3,16 @@
 // Stack: React 18 + Tailwind CSS 3 + React Router v6
 // Integra com: POST /dividas  |  GET /clientes?q=...
 // Banco: tabelas divida + parcela (ver BANCO_DE_DADOS_ZERO_PAPER.txt)
+//
+// 🔥 Incremento (A1):
+//   1) forma_pagamento agora é enviada no payload de POST /dividas (antes só
+//      existia no estado do formulário e nunca chegava ao backend).
+//   2) Quando o usuário vem do cadastro de um novo cliente (CadastroCliente.jsx
+//      → navigate("/dividas/nova", { state: { cliente } })), o cliente já
+//      chega pré-selecionado, sem precisar buscar de novo.
 
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import api from "../services/api";           // axios instance com Bearer JWT
 import { formatBRL, parseBRL } from "../utils/currency";
 import { addMonths, formatDateBR, toISODate } from "../utils/date";
@@ -22,11 +29,15 @@ const FORMAS_PAGAMENTO = [
 // ─── componente principal ──────────────────────────────────────────────────
 export default function CadastroDivida() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // ── estado do formulário ─────────────────────────────────────────────────
   const [clienteQuery, setClienteQuery]     = useState("");
   const [clienteSugestoes, setClienteSugestoes] = useState([]);
-  const [clienteSelecionado, setClienteSelecionado] = useState(null);
+  // 🔥 Pré-seleciona o cliente quando chegamos vindos do cadastro de cliente
+  const [clienteSelecionado, setClienteSelecionado] = useState(
+    location.state?.cliente ?? null
+  );
   const [loadingCliente, setLoadingCliente] = useState(false);
 
   const [produto, setProduto]           = useState("");
@@ -54,6 +65,15 @@ export default function CadastroDivida() {
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // 🔥 Limpa o state de navegação após consumir o cliente pré-selecionado,
+  // para que um F5 na página não continue reaplicando o mesmo cliente.
+  useEffect(() => {
+    if (location.state?.cliente) {
+      window.history.replaceState({}, document.title);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── busca de clientes com debounce ───────────────────────────────────────
@@ -129,6 +149,7 @@ export default function CadastroDivida() {
         parcelas_total:         parseInt(numParcelas, 10),
         data_registro:          toISODate(new Date()),
         data_primeira_parcela:  dataPrimeira,
+        forma_pagamento:        formaPagamento, // 🔥 NOVO: agora enviado ao backend
         // status default = 'ativa' (definido no banco)
       };
 
@@ -136,7 +157,7 @@ export default function CadastroDivida() {
       mostrarToast(`Dívida #${data.id_divida} registrada com sucesso!`, "sucesso");
       setTimeout(() => navigate(`/dividas/${clienteSelecionado.id_cliente}`), 2000);
     } catch (err) {
-      const msg = err.response?.data?.erro || err.response?.data?.message || "Erro ao registrar dívida. Tente novamente.";
+      const msg = err.response?.data?.erro || "Erro ao registrar dívida. Tente novamente.";
       mostrarToast(msg, "erro");
     } finally {
       setSalvando(false);

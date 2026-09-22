@@ -36,21 +36,26 @@ model Cliente {
 
 // ─── Dívida ──────────────────────────────────────────────────
 model Divida {
-  id_divida               Int          @id @default(autoincrement())
+  id_divida               Int            @id @default(autoincrement())
   id_cliente              Int
   id_funcionario          Int
-  valor_base              Decimal      @db.Decimal(10, 2)
-  taxa_aplicada           Decimal      @db.Decimal(5, 4)
-  valor_total             Decimal      @db.Decimal(10, 2)
-  data_registro           DateTime     @db.Date
-  descricao_produto       String       @db.VarChar(255)
-  imei                    String?      @db.VarChar(30)
-  informacoes_adicionais  String?      @db.Text
-  parcelas_total          Int
-  status                  StatusDivida @default(ativa)
+  valor_base              Decimal        @db.Decimal(10, 2)
+  taxa_aplicada            Decimal        @db.Decimal(5, 4)
+  valor_total             Decimal        @db.Decimal(10, 2)
+  data_registro            DateTime       @db.Date
+  descricao_produto       String         @db.VarChar(255)
+  imei                    String?        @db.VarChar(30)
+  informacoes_adicionais  String?        @db.Text
+  parcelas_total           Int
+  // 🔥 NOVO: forma de pagamento escolhida pelo cliente na venda (dinheiro/pix/débito/crédito).
+  // Coletada no formulário desde o início, mas até esta correção não era enviada
+  // pelo frontend nem persistida no banco. Default 'dinheiro' cobre o backfill de
+  // registros já existentes; novas dívidas sempre informam o valor explicitamente.
+  forma_pagamento          FormaPagamento @default(dinheiro)
+  status                  StatusDivida   @default(ativa)
 
-  cliente                 Cliente      @relation(fields: [id_cliente], references: [id_cliente])
-  funcionario             Funcionario  @relation(fields: [id_funcionario], references: [id_funcionario])
+  cliente                 Cliente        @relation(fields: [id_cliente], references: [id_cliente])
+  funcionario             Funcionario    @relation(fields: [id_funcionario], references: [id_funcionario])
   parcelas                Parcela[]
 
   @@map("divida")

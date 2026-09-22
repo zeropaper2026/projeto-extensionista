@@ -1,6 +1,10 @@
 // src/components/Layout.jsx
 // Zero Paper – Layout global com navbar e guard de autenticação
 // Usado por todas as rotas protegidas
+//
+// 🔥 Incremento (A1): botão "Nova dívida" adicionado à navbar, permitindo
+//    iniciar o cadastro de dívida a partir de qualquer tela do sistema
+//    (antes só era possível via BuscaCliente → selecionar cliente → ListaDividas).
 
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth }   from "../contexts/AuthContext";
@@ -25,6 +29,10 @@ export default function Layout({ children }) {
           </div>
           <button className="zp-navbar-btn zp-home-btn" onClick={() => navigate("/clientes")}>
             🏠 Início
+          </button>
+          {/* 🔥 NOVO: acesso direto ao cadastro de dívida a partir de qualquer tela */}
+          <button className="zp-navbar-btn zp-nova-divida-btn" onClick={() => navigate("/dividas/nova")}>
+            ➕ Nova dívida
           </button>
         </div>
 
@@ -72,10 +80,12 @@ export default function Layout({ children }) {
         .zp-navbar-btn{
           background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.75);
           padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;
-          font-family:'DM Sans',sans-serif;transition:.15s;
+          font-family:'DM Sans',sans-serif;transition:.15s;white-space:nowrap;
         }
         .zp-navbar-btn:hover{background:rgba(255,255,255,.18);color:#fff}
         .zp-home-btn{margin-left:.5rem}
+        .zp-nova-divida-btn{background:var(--teal);color:#fff}
+        .zp-nova-divida-btn:hover{background:var(--teal-h);color:#fff}
         .zp-layout-main{flex:1}
         .zp-footer-bar{height:12px;background:linear-gradient(90deg,var(--navy) 0%,var(--teal) 100%);flex-shrink:0}
       `}</style>

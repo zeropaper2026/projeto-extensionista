@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 import biosLogo from "../assets/bios-logo.jpg";
+import biosFachada from "../assets/bios-fachada.jpg";
 
 export default function Login() {
   const { login } = useAuth();
@@ -64,7 +65,7 @@ export default function Login() {
         .zp-brand .bot{font-size:18px;font-weight:700;line-height:1}
         .zp-hero{flex:1;display:grid;grid-template-columns:1fr 420px;min-height:calc(100vh - 76px);overflow:hidden}
         .zp-hero-left{position:relative;background:linear-gradient(135deg,#e8f4f1,#c8e0d8);overflow:hidden}
-        .zp-hero-bg{position:absolute;inset:0;background:url('https://images.unsplash.com/photo-1551434678-e076c223a692?w=800&q=80') center/cover;opacity:.55}
+        .zp-hero-bg{position:absolute;inset:0;background-size:cover;background-position:center 38%;background-repeat:no-repeat}
         .zp-hero-tagline{position:absolute;bottom:3rem;left:2.5rem;right:2.5rem;background:rgba(13,35,64,.75);backdrop-filter:blur(8px);padding:1.5rem 2rem;border-radius:12px;border-left:4px solid var(--teal-light)}
         .zp-hero-tagline p{color:var(--white);font-family:'Sora',sans-serif;font-size:16px;font-weight:300;line-height:1.6;font-style:italic}
         .zp-hero-right{background:var(--g50);display:flex;align-items:center;justify-content:center;padding:3rem 2.5rem}
@@ -94,7 +95,7 @@ export default function Login() {
 
       <div className="zp-hero">
         <div className="zp-hero-left">
-          <div className="zp-hero-bg" />
+          <div className="zp-hero-bg" style={{ backgroundImage: `url(${biosFachada})` }} />
           <div className="zp-hero-tagline">
             <p>"Eliminar completamente o uso de papel no controle de vendas e finanças da sua empresa, transformando processos manuais em fluxos digitais eficientes."</p>
           </div>

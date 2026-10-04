@@ -76,11 +76,23 @@ export default function RegistrarPagamento() {
     setErros({});
   }
 
+  // Correção valor maior que a parcela
   function validar() {
     const e = {};
     if (!parcelaSelecionada) e.parcela = "Selecione uma parcela.";
+
     const v = parseFloat(valorPago.replace(",", "."));
-    if (!v || v <= 0) e.valorPago = "Informe um valor maior que zero.";
+    if (!v || v <= 0) {
+      e.valorPago = "Informe um valor maior que zero.";
+    } else if (parcelaSelecionada) {
+      const restante =
+        Number(parcelaSelecionada.valor_parcela) -
+        Number(parcelaSelecionada.valor_pago_acumulado ?? 0);
+      if (v > restante + 0.001) {
+        e.valorPago = `Valor maior que o restante da parcela (${formatBRL(restante)}).`;
+      }
+    }
+
     setErros(e);
     return Object.keys(e).length === 0;
   }

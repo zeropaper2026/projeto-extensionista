@@ -40,6 +40,16 @@ router.post('/:id/pagar', async (req, res) => {
       return res.status(409).json({ erro: 'Parcela já está paga.' });
     }
 
+    // Correção valor maior que a parcela
+    const restante = parseFloat(
+      (Number(parcela.valor_parcela) - Number(parcela.valor_pago_acumulado)).toFixed(2)
+      );
+        if (Number(valor_pago) > restante) {
+          return res.status(400).json({
+        erro: `Valor excede o restante da parcela (R$ ${restante.toFixed(2).replace('.', ',')}).`,
+      });
+    }
+
     const novoAcumulado = Number(parcela.valor_pago_acumulado) + Number(valor_pago);
     const valorTotal    = Number(parcela.valor_parcela);
 

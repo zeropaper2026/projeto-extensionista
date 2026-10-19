@@ -1,6 +1,6 @@
 // ============================================================
 // ZERO PAPER – Rotas de Dívidas
-// POST /dividas           → criar dívida + parcelas automáticas
+// POST /dividas           → criar dívida (parcelada ou à vista)
 // GET  /dividas/:id       → visualizar dívida com parcelas
 // ============================================================
 
@@ -11,7 +11,6 @@ const { calcularValorComJuros, PARCELAS_MAXIMO } = require('../constants/taxasJu
 
 router.use(autenticar);
 
-// Formas de pagamento válidas (mesmo enum usado em parcela.routes.js)
 const FORMAS = ['dinheiro', 'pix', 'debito', 'credito'];
 
 // Data de hoje no fuso de Tocantins (YYYY-MM-DD)
@@ -48,7 +47,7 @@ router.post('/', async (req, res) => {
   }
   const avista = tipo_venda === 'avista';
 
-  const idCliente = Number(id_cliente);
+  const idCliente    = Number(id_cliente);
   const valorBaseNum = Number(valor_base);
   if (!Number.isInteger(idCliente) || !descricao_produto || !(valorBaseNum > 0)) {
     return res.status(400).json({
@@ -93,21 +92,21 @@ router.post('/', async (req, res) => {
       // À vista: sem taxa, 1 parcela já paga, dívida nasce quitada
       const dataCompra = new Date(`${data_primeira_parcela || hoje}T00:00:00Z`);
       taxaAplicada = 0;
-      valorTotal = parseFloat(valorBaseNum.toFixed(2));
+      valorTotal   = parseFloat(valorBaseNum.toFixed(2));
       dataRegistro = dataCompra;
       statusDivida = 'quitada';
       parcelasData = [{
-        numero: 1,
-        valor_parcela: valorTotal,
+        numero:               1,
+        valor_parcela:        valorTotal,
         valor_pago_acumulado: valorTotal,
-        data_vencimento: dataCompra,
-        status: 'paga',
+        data_vencimento:      dataCompra,
+        status:               'paga',
         pagamentos: {
           create: [{
-            data_pagamento: dataCompra,
-            valor_pago: valorTotal,
+            data_pagamento:  dataCompra,
+            valor_pago:      valorTotal,
             forma_pagamento,
-            observacao: 'Venda à vista',
+            observacao:      'Venda à vista',
           }],
         },
       }];
@@ -119,44 +118,46 @@ router.post('/', async (req, res) => {
         return res.status(400).json({ erro: err.message });
       }
       taxaAplicada = calc.taxaAplicada;
-      valorTotal = calc.valorTotalComJuros;
+      valorTotal   = calc.valorTotalComJuros;
       dataRegistro = new Date(`${hoje}T00:00:00Z`);
       statusDivida = 'ativa';
 
       const valorParcela = parseFloat((valorTotal / nParcelas).toFixed(2));
-      const valorUltima = parseFloat((valorTotal - valorParcela * (nParcelas - 1)).toFixed(2));
+      // Ajuste de centavos na última parcela
+      const valorUltima  = parseFloat((valorTotal - valorParcela * (nParcelas - 1)).toFixed(2));
 
       const base = data_primeira_parcela
         ? new Date(`${data_primeira_parcela}T00:00:00Z`)
         : addMonthsUTC(new Date(`${hoje}T00:00:00Z`), 1);
 
       parcelasData = Array.from({ length: nParcelas }, (_, i) => ({
-        numero: i + 1,
-        valor_parcela: i === nParcelas - 1 ? valorUltima : valorParcela,
+        numero:          i + 1,
+        valor_parcela:   i === nParcelas - 1 ? valorUltima : valorParcela,
         data_vencimento: addMonthsUTC(base, i),
-        status: 'pendente',
+        status:          'pendente',
       }));
     }
 
+    // Cria dívida + parcelas (+ pagamento, se à vista) em uma transação
     const divida = await prisma.divida.create({
       data: {
-        id_cliente: idCliente,
-        id_funcionario: req.funcionario.id,
-        valor_base: valorBaseNum,
-        taxa_aplicada: taxaAplicada,
-        valor_total: valorTotal,
-        data_registro: dataRegistro,
+        id_cliente:             idCliente,
+        id_funcionario:         req.funcionario.id,
+        valor_base:             valorBaseNum,
+        taxa_aplicada:          taxaAplicada,
+        valor_total:            valorTotal,
+        data_registro:          dataRegistro,
         descricao_produto,
-        imei: imei ?? null,
+        imei:                   imei ?? null,
         informacoes_adicionais: informacoes_adicionais ?? null,
-        parcelas_total: nParcelas,
-        status: statusDivida,
+        parcelas_total:         nParcelas,
+        status:                 statusDivida,
         tipo_venda,
-        forma_pagamento: forma_pagamento ?? null,
-        parcelas: { create: parcelasData },
+        forma_pagamento:        forma_pagamento ?? 'dinheiro',
+        parcelas:               { create: parcelasData },
       },
       include: {
-        cliente: { select: { nome: true } },
+        cliente:  { select: { nome: true } },
         parcelas: { orderBy: { numero: 'asc' } },
       },
     });
@@ -167,3 +168,42 @@ router.post('/', async (req, res) => {
     return res.status(500).json({ erro: 'Erro ao criar dívida.' });
   }
 });
+
+// ── GET /dividas/:id ──────────────────────────────────────────
+router.get('/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ erro: 'ID da dívida inválido.' });
+  }
+
+  try {
+    const divida = await prisma.divida.findUnique({
+      where: { id_divida: id },
+      include: {
+        cliente:     { select: { id_cliente: true, nome: true, cpf: true, telefone: true } },
+        funcionario: { select: { nome: true } },
+        parcelas: {
+          orderBy: { numero: 'asc' },
+          include: { pagamentos: { orderBy: { data_pagamento: 'asc' } } },
+        },
+      },
+    });
+
+    if (!divida) {
+      return res.status(404).json({ erro: 'Dívida não encontrada.' });
+    }
+
+    // Calcula saldo devedor
+    const totalPago = divida.parcelas
+      .reduce((acc, p) => acc + Number(p.valor_pago_acumulado), 0);
+    const saldoDevedor = (Number(divida.valor_total) - totalPago).toFixed(2);
+
+    return res.json({ ...divida, saldoDevedor });
+  } catch (error) {
+    console.error('[DIVIDA] Erro ao buscar:', error);
+    return res.status(500).json({ erro: 'Erro ao buscar dívida.' });
+  }
+});
+
+module.exports = router;

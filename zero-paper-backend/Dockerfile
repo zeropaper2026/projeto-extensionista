@@ -27,4 +27,4 @@ COPY . .
 EXPOSE 3333
 
 # Comando padrão (sobrescrito pelo docker-compose em dev)
-CMD ["node", "src/server.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node src/server.js"]

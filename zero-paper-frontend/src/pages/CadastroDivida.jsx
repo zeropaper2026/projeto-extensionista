@@ -1,16 +1,21 @@
+// src/pages/CadastroDivida.jsx
+// Zero Paper – Tela de Criação de Dívida (T14)
+// Venda parcelada (com juros por faixa) ou à vista (sem taxa, histórico)
+// Integra com: POST /dividas  |  GET /clientes?q=...
+
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import api from "../services/api";           // axios instance com Bearer JWT
-import { formatBRL, parseBRL } from "../utils/currency";
-import { addMonths, formatDateBR, hojeISO, toISODate } from "../utils/date";
+import api from "../services/api";
+import { formatBRL } from "../utils/currency";
+import { addMonths, formatDateBR, hojeISO } from "../utils/date";
 import { obterTaxaJuros, PARCELAS_MAXIMO } from "../constants/taxasJuros";
 
 // ─── constantes alinhadas com os ENUMs do banco ────────────────────────────
 const FORMAS_PAGAMENTO = [
-  { value: "dinheiro", label: "Dinheiro",  icon: "💵" },
-  { value: "pix",      label: "Pix",       icon: "📱" },
-  { value: "debito",   label: "Débito",    icon: "💳" },
-  { value: "credito",  label: "Crédito",   icon: "🏦" },
+  { value: "dinheiro", label: "Dinheiro", icon: "💵" },
+  { value: "pix",      label: "Pix",      icon: "📱" },
+  { value: "debito",   label: "Débito",   icon: "💳" },
+  { value: "credito",  label: "Crédito",  icon: "🏦" },
 ];
 
 // ─── componente principal ──────────────────────────────────────────────────
@@ -19,28 +24,27 @@ export default function CadastroDivida() {
   const location = useLocation();
   const clientePreSelecionado = location.state?.cliente ?? null;
 
-
   // ── estado do formulário ─────────────────────────────────────────────────
-  const [clienteQuery, setClienteQuery]     = useState("");
+  const [clienteQuery, setClienteQuery]             = useState("");
+  const [clienteSugestoes, setClienteSugestoes]     = useState([]);
   const [clienteSelecionado, setClienteSelecionado] = useState(clientePreSelecionado);
-  const [clienteSugestoes, setClienteSugestoes] = useState([]);
-  const [tipoVenda, setTipoVenda] = useState("parcelada");
-  const [dataPrimeira, setDataPrimeira] = useState(hojeISO());
-  const avista = tipoVenda === "avista";
+  const [loadingCliente, setLoadingCliente]         = useState(false);
 
-  const [loadingCliente, setLoadingCliente] = useState(false);
-
-  const [produto, setProduto]           = useState("");
-  const [imei, setImei]                 = useState("");
+  const [produto, setProduto]               = useState("");
+  const [imei, setImei]                     = useState("");
   const [infoAdicionais, setInfoAdicionais] = useState("");
 
-  const [valorBase, setValorBase]       = useState(""); // valor sem juros, informado pelo atendente
-  const [numParcelas, setNumParcelas]   = useState("");
+  const [tipoVenda, setTipoVenda]           = useState("parcelada"); // "parcelada" | "avista"
+  const [valorBase, setValorBase]           = useState(""); // valor sem juros
+  const [numParcelas, setNumParcelas]       = useState("");
+  const [dataPrimeira, setDataPrimeira]     = useState(hojeISO());
   const [formaPagamento, setFormaPagamento] = useState("dinheiro");
 
-  const [erros, setErros]               = useState({});
-  const [salvando, setSalvando]         = useState(false);
-  const [toast, setToast]               = useState(null);
+  const [erros, setErros]     = useState({});
+  const [salvando, setSalvando] = useState(false);
+  const [toast, setToast]     = useState(null);
+
+  const avista = tipoVenda === "avista";
 
   const debounceRef = useRef(null);
   const dropdownRef = useRef(null);
@@ -54,15 +58,6 @@ export default function CadastroDivida() {
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // 🔥 Limpa o state de navegação após consumir o cliente pré-selecionado,
-  // para que um F5 na página não continue reaplicando o mesmo cliente.
-  useEffect(() => {
-    if (location.state?.cliente) {
-      window.history.replaceState({}, document.title);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── busca de clientes com debounce ───────────────────────────────────────
@@ -85,15 +80,17 @@ export default function CadastroDivida() {
     }, 350);
   }, [clienteQuery]);
 
-  // ── taxa aplicável e valor com juros (preview) ───────────────────────────
+  // ── taxa aplicável e valor com juros (preview) — à vista = sem taxa ──────
   const nParcelasPreview = parseInt(numParcelas, 10);
-  const taxaAplicada = avista ? 0 : (nParcelasPreview ? obterTaxaJuros(nParcelasPreview) : null);
+  const taxaAplicada = avista
+    ? 0
+    : (nParcelasPreview ? obterTaxaJuros(nParcelasPreview) : null);
   const valorBaseNum = parseFloat(valorBase.replace(",", "."));
   const valorComJuros = (valorBaseNum > 0 && taxaAplicada !== null)
     ? +(valorBaseNum * (1 + taxaAplicada)).toFixed(2)
     : null;
 
-  // ── parcelas calculadas (preview) — sobre o valor já com juros ──────────
+  // ── parcelas calculadas (preview) — só no parcelado ──────────────────────
   const parcelas = (() => {
     const valor = valorComJuros;
     const n     = nParcelasPreview;
@@ -110,20 +107,25 @@ export default function CadastroDivida() {
 
   // ── validação ─────────────────────────────────────────────────────────────
   function validar() {
-  const e = {};
+    const e = {};
     if (!clienteSelecionado) e.cliente = "Selecione um cliente.";
-    if (!produto.trim()) e.produto = "Descrição obrigatória.";
+    if (!produto.trim())     e.produto = "Descrição obrigatória.";
     const v = parseFloat(valorBase.replace(",", "."));
-    if (!v || v <= 0) e.valorBase = "Informe um valor maior que zero.";
+    if (!v || v <= 0)        e.valorBase = "Informe um valor maior que zero.";
     if (!avista) {
       const p = parseInt(numParcelas, 10);
-      if (!p || p < 1 || p > PARCELAS_MAXIMO) e.numParcelas = `Informe entre 1 e ${PARCELAS_MAXIMO} parcelas.`;
+      if (!p || p < 1 || p > PARCELAS_MAXIMO) {
+        e.numParcelas = `Informe entre 1 e ${PARCELAS_MAXIMO} parcelas.`;
+      }
     }
-    if (!dataPrimeira) e.dataPrimeira = avista ? "Informe a data da compra." : "Informe a data da 1ª parcela.";
-    else if (avista && dataPrimeira > hojeISO()) e.dataPrimeira = "A data da compra não pode ser futura.";
+    if (!dataPrimeira) {
+      e.dataPrimeira = avista ? "Informe a data da compra." : "Informe a data da 1ª parcela.";
+    } else if (avista && dataPrimeira > hojeISO()) {
+      e.dataPrimeira = "A data da compra não pode ser futura.";
+    }
     setErros(e);
     return Object.keys(e).length === 0;
-}
+  }
 
   // ── submit ────────────────────────────────────────────────────────────────
   async function handleSubmit(e) {
@@ -133,18 +135,16 @@ export default function CadastroDivida() {
     setSalvando(true);
     try {
       const payload = {
-        id_cliente: clienteSelecionado.id_cliente,
-        descricao_produto: produto.trim(),
-        imei: imei.trim() || null,
+        id_cliente:             clienteSelecionado.id_cliente,
+        descricao_produto:      produto.trim(),
+        imei:                   imei.trim() || null,
         informacoes_adicionais: infoAdicionais.trim() || null,
-        valor_base: parseFloat(valorBase.replace(",", ".")),
-        tipo_venda: tipoVenda,
-        forma_pagamento: formaPagamento,
-        data_primeira_parcela: dataPrimeira, // à vista = data da compra
+        valor_base:             parseFloat(valorBase.replace(",", ".")),
+        tipo_venda:             tipoVenda,
+        forma_pagamento:        formaPagamento,
+        data_primeira_parcela:  dataPrimeira, // à vista = data da compra
         ...(avista ? {} : { parcelas_total: parseInt(numParcelas, 10) }),
       };
-      
-      const msg = err.response?.data?.erro || "Erro ao registrar dívida. Tente novamente.";
 
       const { data } = await api.post("/dividas", payload);
       mostrarToast(`Dívida #${data.id_divida} registrada com sucesso!`, "sucesso");
@@ -164,15 +164,15 @@ export default function CadastroDivida() {
 
   function limparForm() {
     setClienteQuery("");
-    setClienteSelecionado(clientePreSelecionado)
+    setClienteSelecionado(clientePreSelecionado);
     setClienteSugestoes([]);
     setProduto("");
     setImei("");
     setInfoAdicionais("");
+    setTipoVenda("parcelada");
     setValorBase("");
     setNumParcelas("");
     setDataPrimeira(hojeISO());
-    setTipoVenda("parcelada")
     setFormaPagamento("dinheiro");
     setErros({});
   }
@@ -205,7 +205,7 @@ export default function CadastroDivida() {
           </button>
           <div>
             <h1 className="text-xl font-semibold text-gray-900">Nova dívida</h1>
-            <p className="text-sm text-gray-500">Registre uma venda a prazo</p>
+            <p className="text-sm text-gray-500">Registre uma venda a prazo ou à vista</p>
           </div>
         </div>
 
@@ -218,17 +218,17 @@ export default function CadastroDivida() {
             </h2>
 
             {clienteSelecionado ? (
-              /* Badge do cliente selecionado */
               <div className="flex items-center gap-3 bg-bios-primary-50 border border-bios-primary-200 rounded-xl px-4 py-3">
                 <div className="w-9 h-9 rounded-full bg-bios-primary-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
-                  {clienteSelecionado.nome.charAt(0).toUpperCase()}
+                  {clienteSelecionado.nome?.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-bios-primary-900 text-sm truncate">
                     {clienteSelecionado.nome}
                   </p>
                   <p className="text-xs text-bios-primary-600">
-                    CPF: {clienteSelecionado.cpf} · {clienteSelecionado.telefone}
+                    CPF: {clienteSelecionado.cpf}
+                    {clienteSelecionado.telefone ? ` · ${clienteSelecionado.telefone}` : ""}
                   </p>
                 </div>
                 <button
@@ -241,7 +241,6 @@ export default function CadastroDivida() {
                 </button>
               </div>
             ) : (
-              /* Campo de busca */
               <div className="relative" ref={dropdownRef}>
                 <label className="block text-sm text-gray-600 mb-1" htmlFor="clienteInput">
                   Buscar por nome ou CPF <span className="text-red-500">*</span>
@@ -267,7 +266,6 @@ export default function CadastroDivida() {
                   <p className="text-xs text-red-500 mt-1">{erros.cliente}</p>
                 )}
 
-                {/* Dropdown de sugestões */}
                 {clienteSugestoes.length > 0 && (
                   <ul className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
                     {clienteSugestoes.map((c) => (
@@ -283,7 +281,10 @@ export default function CadastroDivida() {
                           className="w-full text-left px-4 py-2.5 hover:bg-bios-primary-50 border-b border-gray-100 last:border-b-0 transition-colors"
                         >
                           <p className="text-sm font-medium text-gray-800">{c.nome}</p>
-                          <p className="text-xs text-gray-500">CPF: {c.cpf} · {c.telefone}</p>
+                          <p className="text-xs text-gray-500">
+                            CPF: {c.cpf}
+                            {c.telefone ? ` · ${c.telefone}` : ""}
+                          </p>
                         </button>
                       </li>
                     ))}
@@ -300,7 +301,6 @@ export default function CadastroDivida() {
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Descrição */}
               <div className="sm:col-span-2">
                 <label className="block text-sm text-gray-600 mb-1" htmlFor="produto">
                   Descrição do produto <span className="text-red-500">*</span>
@@ -317,7 +317,6 @@ export default function CadastroDivida() {
                 {erros.produto && <p className="text-xs text-red-500 mt-1">{erros.produto}</p>}
               </div>
 
-              {/* IMEI */}
               <div>
                 <label className="block text-sm text-gray-600 mb-1" htmlFor="imei">
                   IMEI / Nº de série
@@ -333,7 +332,6 @@ export default function CadastroDivida() {
                 />
               </div>
 
-              {/* Informações adicionais */}
               <div className="sm:col-span-2">
                 <label className="block text-sm text-gray-600 mb-1" htmlFor="infoAdicionais">
                   Informações adicionais
@@ -355,25 +353,29 @@ export default function CadastroDivida() {
             <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
               Condições financeiras
             </h2>
-              
+
+            {/* Seletor Parcelado / À vista */}
             <div className="grid grid-cols-2 gap-2 mb-4">
-              {[{ v: "parcelada", l: "Parcelado" }, { v: "avista", l: "À vista" }].map((o) => (
+              {[
+                { v: "parcelada", l: "Parcelado" },
+                { v: "avista",    l: "À vista" },
+              ].map((o) => (
                 <button
                   key={o.v}
                   type="button"
                   onClick={() => { setTipoVenda(o.v); setErros({}); }}
-                  className={`h-10 rounded-xl border text-sm font-medium transition-all ${
-                    tipoVenda === o.v
+                  className={`h-10 rounded-xl border text-sm font-medium transition-all
+                    ${tipoVenda === o.v
                       ? "border-bios-primary-500 bg-bios-primary-50 text-bios-primary-700 ring-1 ring-bios-primary-500"
                       : "border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100"
-                  }`}
+                    }`}
                 >
                   {o.l}
-            </button>
-          ))}
-        </div>
+                </button>
+              ))}
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className={`grid grid-cols-1 gap-3 ${avista ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
               {/* Valor base (sem juros) */}
               <div>
                 <label className="block text-sm text-gray-600 mb-1" htmlFor="valorBase">
@@ -390,54 +392,62 @@ export default function CadastroDivida() {
                     ${erros.valorBase ? "border-red-400" : "border-gray-300"}`}
                 />
                 {erros.valorBase && <p className="text-xs text-red-500 mt-1">{erros.valorBase}</p>}
-                <p className="text-xs text-gray-400 mt-1">Valor sem juros — a taxa é aplicada automaticamente.</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {avista
+                    ? "Venda à vista: sem juros."
+                    : "Valor sem juros — a taxa é aplicada automaticamente."}
+                </p>
               </div>
 
-              {/* Nº parcelas */}
+              {/* Nº parcelas (só parcelado) */}
+              {!avista && (
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1" htmlFor="numParcelas">
+                    Parcelas (máx. {PARCELAS_MAXIMO}x) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="numParcelas"
+                    type="number"
+                    min={1}
+                    max={PARCELAS_MAXIMO}
+                    value={numParcelas}
+                    onChange={(e) => { setNumParcelas(e.target.value); setErros((p) => ({ ...p, numParcelas: undefined })); }}
+                    placeholder="Ex.: 6"
+                    className={`w-full h-10 px-3 rounded-xl border text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-bios-primary-500 focus:bg-white transition
+                      ${erros.numParcelas ? "border-red-400" : "border-gray-300"}`}
+                  />
+                  {erros.numParcelas && <p className="text-xs text-red-500 mt-1">{erros.numParcelas}</p>}
+                  {taxaAplicada !== null && (
+                    <p className="text-xs text-bios-primary-700 mt-1 font-medium">
+                      Taxa aplicada: {(taxaAplicada * 100).toFixed(0)}%
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Data 1ª parcela / Data da compra */}
               <div>
-                <label className="block text-sm text-gray-600 mb-1" htmlFor="numParcelas">
-                  Parcelas (máx. {PARCELAS_MAXIMO}x) <span className="text-red-500">*</span>
+                <label className="block text-sm text-gray-600 mb-1" htmlFor="dataPrimeira">
+                  {avista ? "Data da compra" : "1ª parcela em"} <span className="text-red-500">*</span>
                 </label>
                 <input
-                  id="numParcelas"
-                  type="number"
-                  min={1}
-                  max={PARCELAS_MAXIMO}
-                  value={numParcelas}
-                  onChange={(e) => { setNumParcelas(e.target.value); setErros((p) => ({ ...p, numParcelas: undefined })); }}
-                  placeholder="Ex.: 6"
+                  id="dataPrimeira"
+                  type="date"
+                  max={avista ? hojeISO() : undefined}
+                  value={dataPrimeira}
+                  onChange={(e) => { setDataPrimeira(e.target.value); setErros((p) => ({ ...p, dataPrimeira: undefined })); }}
                   className={`w-full h-10 px-3 rounded-xl border text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-bios-primary-500 focus:bg-white transition
-                    ${erros.numParcelas ? "border-red-400" : "border-gray-300"}`}
+                    ${erros.dataPrimeira ? "border-red-400" : "border-gray-300"}`}
                 />
-                {erros.numParcelas && <p className="text-xs text-red-500 mt-1">{erros.numParcelas}</p>}
-                {taxaAplicada !== null && (
-                  <p className="text-xs text-bios-primary-700 mt-1 font-medium">
-                    Taxa aplicada: {(taxaAplicada * 100).toFixed(0)}%
-                  </p>
-                )}
+                {erros.dataPrimeira && <p className="text-xs text-red-500 mt-1">{erros.dataPrimeira}</p>}
               </div>
-
-              {/* Data 1ª parcela */}
-              {/* Data 1ª parcela / Data da compra */}
-            <div>
-              <label className="block text-sm text-gray-600 mb-1" htmlFor="dataPrimeira">
-                {avista ? "Data da compra" : "1ª parcela em"} <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="dataPrimeira"
-                type="date"
-                max={avista ? hojeISO() : undefined}
-                value={dataPrimeira}
-                onChange={(e) => { setDataPrimeira(e.target.value); setErros((p) => ({ ...p, dataPrimeira: undefined })); }}
-                className={`w-full h-10 px-3 rounded-xl border text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-bios-primary-500 focus:bg-white transition
-                  ${erros.dataPrimeira ? "border-red-400" : "border-gray-300"}`}
-              />
-              {erros.dataPrimeira && <p className="text-xs text-red-500 mt-1">{erros.dataPrimeira}</p>}
             </div>
 
             {/* Forma de pagamento */}
             <div className="mt-4">
-              <p className="text-sm text-gray-600 mb-2">Forma de pagamento <span className="text-red-500">*</span></p>
+              <p className="text-sm text-gray-600 mb-2">
+                Forma de pagamento <span className="text-red-500">*</span>
+              </p>
               <div className="grid grid-cols-4 gap-2">
                 {FORMAS_PAGAMENTO.map((f) => (
                   <button
@@ -458,10 +468,12 @@ export default function CadastroDivida() {
             </div>
           </section>
 
-
+          {/* ── Seção: Resumo da venda à vista ─────────────────────────── */}
           {avista && valorBaseNum > 0 && (
             <section className="bg-white rounded-2xl border border-gray-200 p-5">
-              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Resumo da venda</h2>
+              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
+                Resumo da venda
+              </h2>
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-gray-50 rounded-xl p-3">
                   <p className="text-xs text-gray-400 uppercase tracking-wide">Total (sem juros)</p>
@@ -475,7 +487,6 @@ export default function CadastroDivida() {
             </section>
           )}
 
-
           {/* ── Seção: Prévia das Parcelas ─────────────────────────────── */}
           {parcelas.length > 0 && (
             <section className="bg-white rounded-2xl border border-gray-200 p-5">
@@ -483,7 +494,6 @@ export default function CadastroDivida() {
                 Prévia das parcelas
               </h2>
 
-              {/* Resumo */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                 {[
                   { label: "Valor do produto", val: formatBRL(valorBaseNum) },
@@ -498,7 +508,6 @@ export default function CadastroDivida() {
                 ))}
               </div>
 
-              {/* Lista de parcelas (máx 6 visíveis) */}
               <ul className="divide-y divide-gray-100">
                 {parcelas.slice(0, 6).map((p) => (
                   <li key={p.numero} className="flex items-center gap-3 py-2.5">

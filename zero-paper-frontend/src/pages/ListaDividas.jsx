@@ -8,7 +8,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../services/api";
 import { formatBRL } from "../utils/currency";
 import { formatDateUTC } from "../utils/date";
-import { FORMAS_PAGAMENTO } from "..constants/formaPagamento";
+import { FORMAS_PAGAMENTO } from "../constants/formaPagamento";
 import { STATUS_DIVIDA, STATUS_PARCELA } from "../constants/status";
 
 function StatusBadge({ status, map }) {

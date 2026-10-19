@@ -7,7 +7,8 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../services/api";
 import { formatBRL } from "../utils/currency";
-import { formatDateBR } from "../utils/date";
+import { formatDateUTC } from "../utils/date";
+import { FORMAS_PAGAMENTO } from "..constants/formaPagamento";
 import { STATUS_DIVIDA, STATUS_PARCELA } from "../constants/status";
 
 function StatusBadge({ status, map }) {
@@ -23,9 +24,14 @@ function CardDivida({ divida }) {
   const [aberto, setAberto] = useState(false);
   const navigate = useNavigate();
 
-  const pagas    = divida.parcelas?.filter((p) => p.status === "paga").length ?? 0;
-  const total    = divida.parcelas_total;
+  const avista = divida.tipo_venda === "avista";
+  const parcelas = divida.parcelas ?? [];
+  const pagas = parcelas.filter((p) => p.status === "paga").length;
+  const total = divida.parcelas_total;
   const progresso = total > 0 ? Math.round((pagas / total) * 100) : 0;
+  const totalPago = parcelas.reduce((a, p) => a + Number(p.valor_pago_acumulado || 0), 0);
+  const saldo = Math.max(Number(divida.valor_total) - totalPago, 0);
+  const formaLabel = FORMAS_PAGAMENTO.find((f) => f.value === divida.forma_pagamento)?.label;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
@@ -38,45 +44,84 @@ function CardDivida({ divida }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-semibold text-gray-800 truncate">{divida.descricao_produto}</span>
+            {avista && (
+              <span className="text-xs font-medium px-2.5 py-0.5 rounded-full border bg-bios-primary-50 text-bios-primary-700 border-bios-primary-200">
+                À vista
+              </span>
+            )}
             <StatusBadge status={divida.status} map={STATUS_DIVIDA} />
           </div>
           {divida.imei && <p className="text-xs text-gray-400 mt-0.5">IMEI: {divida.imei}</p>}
           <div className="flex items-center gap-3 mt-2 flex-wrap">
             <span className="text-base font-bold text-gray-900">{formatBRL(divida.valor_total)}</span>
-            <span className="text-xs text-gray-400">{pagas}/{total} parcelas pagas · Reg.: {formatDateBR(new Date(divida.data_registro))}</span>
+            {avista ? (
+              <span className="text-xs text-gray-400">
+                {formaLabel ? `${formaLabel} · ` : ""}Compra: {formatDateUTC(divida.data_registro)}
+              </span>
+            ) : (
+              <span className="text-xs text-gray-400">
+                {pagas}/{total} parcelas pagas · Pago: {formatBRL(totalPago)} · Saldo: {formatBRL(saldo)} · Reg.: {formatDateUTC(divida.data_registro)}
+              </span>
+            )}
           </div>
-          <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden w-full">
-            <div className="h-full bg-bios-primary-500 rounded-full transition-all" style={{ width: `${progresso}%` }} />
-          </div>
+          {!avista && (
+            <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden w-full">
+              <div className="h-full bg-bios-primary-500 rounded-full transition-all" style={{ width: `${progresso}%` }} />
+            </div>
+          )}
         </div>
         <span className="text-gray-400 text-lg mt-1">{aberto ? "▲" : "▼"}</span>
       </div>
+
       {aberto && (
         <div className="border-t border-gray-100 px-4 pb-4">
           <ul className="divide-y divide-gray-50 mt-2">
-            {(divida.parcelas ?? []).map((p) => (
-              <li key={p.id_parcela} className="flex items-center gap-3 py-2.5">
-                <span className="w-6 h-6 flex items-center justify-center rounded-md bg-gray-100 text-xs font-semibold text-gray-500 shrink-0">
-                  {p.numero}
-                </span>
-                <span className="flex-1 text-sm text-gray-700">{formatBRL(p.valor_parcela)}</span>
-                <span className="text-xs text-gray-400">
-                  Venc.: {formatDateBR(new Date(p.data_vencimento))}
-                </span>
-                <StatusBadge status={p.status} map={STATUS_PARCELA} />
-              </li>
-            ))}
+            {parcelas.map((p) => {
+              const pago = Number(p.valor_pago_acumulado || 0);
+              const restante = Math.max(Number(p.valor_parcela) - pago, 0);
+              return (
+                <li key={p.id_parcela} className="py-2.5">
+                  <div className="flex items-center gap-3">
+                    <span className="w-6 h-6 flex items-center justify-center rounded-md bg-gray-100 text-xs font-semibold text-gray-500 shrink-0">
+                      {p.numero}
+                    </span>
+                    <span className="flex-1 text-sm text-gray-700">{formatBRL(p.valor_parcela)}</span>
+                    <span className="text-xs text-gray-400">
+                      {avista ? "Compra" : "Venc."}: {formatDateUTC(p.data_vencimento)}
+                    </span>
+                    <StatusBadge status={p.status} map={STATUS_PARCELA} />
+                  </div>
+
+                  {!avista && pago > 0 && p.status !== "paga" && (
+                    <p className="text-xs text-purple-600 mt-1 ml-9">
+                      Pago: {formatBRL(pago)} · Restante: {formatBRL(restante)}
+                    </p>
+                  )}
+
+                  {(p.pagamentos ?? []).length > 0 && (
+                    <ul className="mt-1 ml-9 space-y-0.5">
+                      {p.pagamentos.map((pg) => (
+                        <li key={pg.id_pagamento} className="text-xs text-gray-400">
+                          {formatDateUTC(pg.data_pagamento)} · {formatBRL(pg.valor_pago)} ·{" "}
+                          {FORMAS_PAGAMENTO.find((f) => f.value === pg.forma_pagamento)?.label ?? pg.forma_pagamento}
+                          {pg.observacao ? ` · ${pg.observacao}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
           </ul>
-          <button
-            onClick={() => {
-              if (divida.id_divida) {
-                navigate(`/dividas/${divida.id_divida}/pagar`);
-              }
-            }}
-            className="mt-3 w-full h-9 rounded-xl bg-bios-primary-600 text-white text-sm font-medium hover:bg-bios-primary-700"
-          >
-            Registrar pagamento
-          </button>
+
+          {!avista && divida.status !== "quitada" && (
+            <button
+              onClick={() => divida.id_divida && navigate(`/dividas/${divida.id_divida}/pagar`)}
+              className="mt-3 w-full h-9 rounded-xl bg-bios-primary-600 text-white text-sm font-medium hover:bg-bios-primary-700"
+            >
+              Registrar pagamento
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -166,7 +211,11 @@ export default function ListaDividas() {
             <h1 className="text-xl font-semibold text-gray-900">{cliente?.nome ?? "Cliente"}</h1>
             <p className="text-sm text-gray-500">CPF: {cliente?.cpf ?? "---"}</p>
           </div>
-          <Link to="/dividas/nova" className="px-4 h-9 rounded-xl bg-bios-primary-600 text-white text-sm font-medium hover:bg-bios-primary-700 flex items-center gap-1">
+          <Link
+            to="/dividas/nova"
+            state={{ cliente: { id_cliente: cliente?.id_cliente, nome: cliente?.nome, cpf: cliente?.cpf, telefone: cliente?.telefone } }}
+            className="px-4 h-9 rounded-xl bg-bios-primary-600 text-white text-sm font-medium hover:bg-bios-primary-700 flex items-center gap-1"
+          >
             + Nova dívida
           </Link>
         </div>

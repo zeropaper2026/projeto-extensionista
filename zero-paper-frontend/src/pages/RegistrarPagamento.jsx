@@ -6,9 +6,10 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { formatBRL } from "../utils/currency";
-import { formatDateBR } from "../utils/date";
+import { formatDateUTC } from "../utils/date";
 import { FORMAS_PAGAMENTO } from "../constants/formaPagamento";
 import { STATUS_PARCELA } from "../constants/status";
 
@@ -208,7 +209,7 @@ export default function RegistrarPagamento() {
                             <StatusBadge status={p.status} />
                           </div>
                           <p className="text-xs text-gray-400 mt-0.5">
-                            Venc.: {formatDateBR(new Date(p.data_vencimento))}
+                            Venc.: {formatDateUTC(p.data_vencimento)}
                             {p.valor_pago_acumulado > 0 && <span className="ml-2 text-purple-600">· Já pago: {formatBRL(p.valor_pago_acumulado)} · Restante: {formatBRL(valorRestante)}</span>}
                           </p>
                         </div>

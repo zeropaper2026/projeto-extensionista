@@ -77,7 +77,7 @@ export default function CadastroCliente() {
         endereco:  form.endereco.trim() || undefined,
         email:     form.email.trim()    || undefined,
       });
-      setSucesso(data);
+      navigate("/dividas/nova", { state: { cliente: data } });
 
       // 🔥 NOVO: após confirmar o cadastro, segue automaticamente para o
       // formulário de nova dívida com o cliente já selecionado. O pequeno
@@ -187,16 +187,6 @@ export default function CadastroCliente() {
             <div className="zp-alert ko">
               <span>⚠️</span>
               <div><strong>Erro ao cadastrar</strong>{erroGeral}</div>
-            </div>
-          )}
-
-          {sucesso && (
-            <div className="zp-alert ok">
-              <span>✅</span>
-              <div>
-                <strong>Cliente cadastrado com sucesso!</strong>
-                Redirecionando para o cadastro de dívida…
-              </div>
             </div>
           )}
 

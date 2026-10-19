@@ -88,6 +88,7 @@ router.get('/:id', async (req, res) => {
           include: {
             parcelas: {
               orderBy: { numero: 'asc' },
+              include: { pagamentos: { orderBy: { data_pagamento: 'asc' } } },
             },
           },
         },

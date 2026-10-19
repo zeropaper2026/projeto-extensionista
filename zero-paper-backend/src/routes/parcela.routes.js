@@ -1,6 +1,6 @@
 // ============================================================
 // ZERO PAPER – Rotas de Parcelas
-// POST /parcelas/:id/pagar  → registrar pagamento + atualizar status
+// POST /parcelas/:id/pagar  → registrar pagamento (total ou parcial)
 // GET  /parcelas/:id        → visualizar parcela com pagamentos
 // ============================================================
 
@@ -15,10 +15,15 @@ router.post('/:id/pagar', async (req, res) => {
   const id_parcela = parseInt(req.params.id);
   const { valor_pago, forma_pagamento, observacao } = req.body;
 
-  if (!valor_pago || !forma_pagamento) {
+  if (!Number.isInteger(id_parcela)) {
+    return res.status(400).json({ erro: 'ID da parcela inválido.' });
+  }
+
+  const valor = Number(valor_pago);
+  if (!forma_pagamento || valor_pago === undefined || valor_pago === null) {
     return res.status(400).json({ erro: 'valor_pago e forma_pagamento são obrigatórios.' });
   }
-  if (valor_pago <= 0) {
+  if (!Number.isFinite(valor) || valor <= 0) {
     return res.status(400).json({ erro: 'Valor pago deve ser maior que zero.' });
   }
 
@@ -40,28 +45,21 @@ router.post('/:id/pagar', async (req, res) => {
       return res.status(409).json({ erro: 'Parcela já está paga.' });
     }
 
-    // Correção valor maior que a parcela
-    const restante = parseFloat(
-      (Number(parcela.valor_parcela) - Number(parcela.valor_pago_acumulado)).toFixed(2)
-      );
-        if (Number(valor_pago) > restante) {
-          return res.status(400).json({
+    const valorTotal     = Number(parcela.valor_parcela);
+    const acumuladoAtual = Number(parcela.valor_pago_acumulado);
+    const restante       = parseFloat((valorTotal - acumuladoAtual).toFixed(2));
+
+    // Pagamento acima do restante da parcela → 400
+    if (valor > restante) {
+      return res.status(400).json({
         erro: `Valor excede o restante da parcela (R$ ${restante.toFixed(2).replace('.', ',')}).`,
       });
     }
 
-    const novoAcumulado = Number(parcela.valor_pago_acumulado) + Number(valor_pago);
-    const valorTotal    = Number(parcela.valor_parcela);
+    const novoAcumulado = parseFloat((acumuladoAtual + valor).toFixed(2));
 
-    // Define novo status da parcela
-    let novoStatus;
-    if (novoAcumulado >= valorTotal) {
-      novoStatus = 'paga';
-    } else if (novoAcumulado > 0) {
-      novoStatus = 'parcial';
-    } else {
-      novoStatus = parcela.status;
-    }
+    // Define novo status da parcela (parcial → paga quando completa)
+    const novoStatus = novoAcumulado >= valorTotal ? 'paga' : 'parcial';
 
     // Executa tudo em transação
     const [pagamento, parcelaAtualizada] = await prisma.$transaction([
@@ -70,9 +68,9 @@ router.post('/:id/pagar', async (req, res) => {
         data: {
           id_parcela,
           data_pagamento:  new Date(),
-          valor_pago,
+          valor_pago:      valor,
           forma_pagamento,
-          observacao: observacao ?? null,
+          observacao:      observacao ?? null,
         },
       }),
       // 2. Atualiza parcela
@@ -95,8 +93,8 @@ router.post('/:id/pagar', async (req, res) => {
 
     if (todasPagas) {
       await prisma.divida.update({
-        where:  { id_divida: parcela.id_divida },
-        data:   { status: 'quitada' },
+        where: { id_divida: parcela.id_divida },
+        data:  { status: 'quitada' },
       });
     }
 
@@ -115,6 +113,10 @@ router.post('/:id/pagar', async (req, res) => {
 // ── GET /parcelas/:id ─────────────────────────────────────────
 router.get('/:id', async (req, res) => {
   const id_parcela = parseInt(req.params.id);
+
+  if (!Number.isInteger(id_parcela)) {
+    return res.status(400).json({ erro: 'ID da parcela inválido.' });
+  }
 
   try {
     const parcela = await prisma.parcela.findUnique({

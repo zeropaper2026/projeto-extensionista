@@ -7,9 +7,13 @@
 //    automaticamente para "Nova dívida" (/dividas/nova), já passando o
 //    cliente recém-criado via state do React Router — elimina o passo
 //    manual de buscar o cliente de novo em CadastroDivida.jsx.
+//
+// 🔥 Incremento (A12): modo edição. A mesma tela serve para /clientes/novo
+//    e /clientes/:clienteId/editar. Ao editar, carrega o cliente da API,
+//    envia PATCH e volta para a lista de dívidas.
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
 
 function formatCPF(value) {
@@ -27,13 +31,31 @@ function formatTel(value) {
 }
 
 export default function CadastroCliente() {
+  const { clienteId } = useParams();
   const navigate = useNavigate();
+  const editando = Boolean(clienteId);
 
   const [form, setForm]       = useState({ nome: "", cpf: "", telefone: "", endereco: "", email: "" });
   const [errors, setErrors]   = useState({});
   const [loading, setLoading] = useState(false);
+  const [carregando, setCarregando] = useState(editando);
   const [sucesso, setSucesso] = useState(null);
   const [erroGeral, setErroGeral] = useState("");
+
+  // A12 — modo edição: carrega o cliente da API para popular o form
+  useEffect(() => {
+    if (!editando) return;
+    api.get(`/clientes/${clienteId}`)
+      .then(({ data }) => setForm({
+        nome: data.nome ?? "",
+        cpf: formatCPF(data.cpf ?? ""),
+        telefone: formatTel(data.telefone ?? ""),
+        endereco: data.endereco ?? "",
+        email: data.email ?? "",
+      }))
+      .catch((err) => setErroGeral(err.response?.data?.erro || "Não foi possível carregar o cliente."))
+      .finally(() => setCarregando(false));
+  }, [clienteId, editando]);
 
   function validate() {
     const e = {};
@@ -70,6 +92,20 @@ export default function CadastroCliente() {
     setErroGeral("");
 
     try {
+      // A12 — modo edição: PATCH e volta para a lista de dívidas do cliente
+      if (editando) {
+        await api.patch(`/clientes/${clienteId}`, {
+          nome:     form.nome.trim(),
+          cpf:      form.cpf.replace(/\D/g, ""),
+          telefone: form.telefone,           // "" limpa o campo
+          endereco: form.endereco.trim(),
+          email:    form.email.trim(),
+        });
+        navigate(`/dividas/${clienteId}`);
+        return;
+      }
+
+      // Modo cadastro — comportamento atual mantido
       const { data } = await api.post("/clientes", {
         nome:      form.nome.trim(),
         cpf:       form.cpf.replace(/\D/g, ""),
@@ -77,13 +113,8 @@ export default function CadastroCliente() {
         endereco:  form.endereco.trim() || undefined,
         email:     form.email.trim()    || undefined,
       });
-      navigate("/dividas/nova", { state: { cliente: data } });
-
-      // 🔥 NOVO: após confirmar o cadastro, segue automaticamente para o
-      // formulário de nova dívida com o cliente já selecionado. O pequeno
-      // atraso deixa a mensagem de sucesso visível por um instante antes
-      // do redirecionamento, mantendo o padrão de UX já usado em outras
-      // telas do sistema (toast + navigate com delay).
+      setSucesso(data);
+      // Pequeno atraso deixa a mensagem de sucesso visível antes de navegar
       setTimeout(() => {
         navigate("/dividas/nova", { state: { cliente: data } });
       }, 1200);
@@ -131,74 +162,96 @@ export default function CadastroCliente() {
 
       <div className="zp-cc-card">
         <div className="zp-cc-head">
-          <h1>Cadastrar novo cliente</h1>
+          <h1>{editando ? "Editar cliente" : "Cadastrar novo cliente"}</h1>
           <p>Campos marcados com * são obrigatórios.</p>
         </div>
 
-        <form onSubmit={handleSubmit} noValidate>
-          <div className="zp-sec">Dados principais</div>
-          <div className="zp-grid2">
-            <div className="zp-field">
-              <label className="zp-label">Nome completo <span className="zp-req">*</span></label>
-              <input className={`zp-input${errors.nome ? " err" : ""}`}
-                placeholder="Maria Oliveira" value={form.nome}
-                onChange={e => handleChange("nome", e.target.value)} />
-              {errors.nome && <span className="zp-ferr">{errors.nome}</span>}
+        {carregando ? (
+          <p style={{ textAlign: "center", color: "#94a3b8", padding: "2rem 0" }}>
+            Carregando cliente…
+          </p>
+        ) : (
+          <form onSubmit={handleSubmit} noValidate>
+            <div className="zp-sec">Dados principais</div>
+            <div className="zp-grid2">
+              <div className="zp-field">
+                <label className="zp-label">Nome completo <span className="zp-req">*</span></label>
+                <input className={`zp-input${errors.nome ? " err" : ""}`}
+                  placeholder="Maria Oliveira" value={form.nome}
+                  onChange={e => handleChange("nome", e.target.value)} />
+                {errors.nome && <span className="zp-ferr">{errors.nome}</span>}
+              </div>
+              <div className="zp-field">
+                <label className="zp-label">CPF <span className="zp-req">*</span></label>
+                <input className={`zp-input${errors.cpf ? " err" : ""}`}
+                  placeholder="000.000.000-00" value={form.cpf}
+                  onChange={e => handleChange("cpf", e.target.value)} inputMode="numeric" />
+                {errors.cpf && <span className="zp-ferr">{errors.cpf}</span>}
+              </div>
             </div>
-            <div className="zp-field">
-              <label className="zp-label">CPF <span className="zp-req">*</span></label>
-              <input className={`zp-input${errors.cpf ? " err" : ""}`}
-                placeholder="000.000.000-00" value={form.cpf}
-                onChange={e => handleChange("cpf", e.target.value)} inputMode="numeric" />
-              {errors.cpf && <span className="zp-ferr">{errors.cpf}</span>}
-            </div>
-          </div>
 
-          <hr className="zp-hr" />
+            <hr className="zp-hr" />
 
-          <div className="zp-sec">Contato</div>
-          <div className="zp-grid2">
-            <div className="zp-field">
-              <label className="zp-label">Telefone</label>
-              <input className="zp-input" placeholder="(63) 99999-0000"
-                value={form.telefone}
-                onChange={e => handleChange("telefone", e.target.value)} inputMode="tel" />
+            <div className="zp-sec">Contato</div>
+            <div className="zp-grid2">
+              <div className="zp-field">
+                <label className="zp-label">Telefone</label>
+                <input className="zp-input" placeholder="(63) 99999-0000"
+                  value={form.telefone}
+                  onChange={e => handleChange("telefone", e.target.value)} inputMode="tel" />
+              </div>
+              <div className="zp-field">
+                <label className="zp-label">E-mail {errors.email && <span className="zp-req">✗</span>}</label>
+                <input className={`zp-input${errors.email ? " err" : ""}`}
+                  placeholder="cliente@email.com" type="email" value={form.email}
+                  onChange={e => handleChange("email", e.target.value)} />
+                {errors.email && <span className="zp-ferr">{errors.email}</span>}
+              </div>
             </div>
-            <div className="zp-field">
-              <label className="zp-label">E-mail {errors.email && <span className="zp-req">✗</span>}</label>
-              <input className={`zp-input${errors.email ? " err" : ""}`}
-                placeholder="cliente@email.com" type="email" value={form.email}
-                onChange={e => handleChange("email", e.target.value)} />
-              {errors.email && <span className="zp-ferr">{errors.email}</span>}
-            </div>
-          </div>
 
-          <div className="zp-full">
-            <div className="zp-field">
-              <label className="zp-label">Endereço</label>
-              <input className="zp-input"
-                placeholder="Rua das Palmeiras, 10 – Palmas/TO"
-                value={form.endereco}
-                onChange={e => handleChange("endereco", e.target.value)} />
+            <div className="zp-full">
+              <div className="zp-field">
+                <label className="zp-label">Endereço</label>
+                <input className="zp-input"
+                  placeholder="Rua das Palmeiras, 10 – Palmas/TO"
+                  value={form.endereco}
+                  onChange={e => handleChange("endereco", e.target.value)} />
+              </div>
             </div>
-          </div>
 
-          {erroGeral && (
-            <div className="zp-alert ko">
-              <span>⚠️</span>
-              <div><strong>Erro ao cadastrar</strong>{erroGeral}</div>
+            {sucesso && (
+              <div className="zp-alert ok">
+                <span>✓</span>
+                <div>
+                  <strong>Cliente cadastrado</strong>
+                  {sucesso.nome} foi cadastrado com sucesso.
+                </div>
+              </div>
+            )}
+
+            {erroGeral && (
+              <div className="zp-alert ko">
+                <span>⚠️</span>
+                <div><strong>Erro ao {editando ? "salvar" : "cadastrar"}</strong>{erroGeral}</div>
+              </div>
+            )}
+
+            <div className="zp-actions">
+              {editando ? (
+                <button type="button" className="zp-btn-sec" onClick={() => navigate(-1)}>
+                  Cancelar
+                </button>
+              ) : (
+                <button type="button" className="zp-btn-sec" onClick={handleNovo}>
+                  {sucesso ? "Novo cadastro" : "Limpar"}
+                </button>
+              )}
+              <button type="submit" className="zp-btn-pri" disabled={loading || carregando || !!sucesso}>
+                {loading ? "Salvando…" : editando ? "Salvar alterações" : "Salvar cliente"}
+              </button>
             </div>
-          )}
-
-          <div className="zp-actions">
-            <button type="button" className="zp-btn-sec" onClick={handleNovo}>
-              {sucesso ? "Novo cadastro" : "Limpar"}
-            </button>
-            <button type="submit" className="zp-btn-pri" disabled={loading || !!sucesso}>
-              {loading ? "Salvando…" : "Salvar cliente"}
-            </button>
-          </div>
-        </form>
+          </form>
+        )}
       </div>
     </div>
   );

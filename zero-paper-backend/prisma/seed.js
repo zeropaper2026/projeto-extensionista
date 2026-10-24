@@ -152,6 +152,11 @@ async function main() {
 }
 
 main()
+
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Seed bloqueado em produção. Use prisma/criarFuncionario.js.');
+    }
+    
   .catch((e) => {
     console.error('❌ Erro no seed:', e);
     process.exit(1);

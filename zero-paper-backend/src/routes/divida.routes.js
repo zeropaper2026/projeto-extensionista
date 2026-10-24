@@ -1,160 +1,171 @@
 // ============================================================
 // ZERO PAPER – Rotas de Dívidas
-// POST /dividas           → criar dívida (parcelada ou à vista)
-// GET  /dividas/:id       → visualizar dívida com parcelas
+// GET  /dividas?q=&status=  → busca de dívida (4.6)
+// POST /dividas             → criar dívida + parcelas automáticas
+// GET  /dividas/:id         → visualizar dívida com parcelas
 // ============================================================
 
 const router     = require('express').Router();
 const prisma     = require('../lib/prisma');
 const autenticar = require('../middlewares/autenticar');
 const { calcularValorComJuros, PARCELAS_MAXIMO } = require('../constants/taxasJuros');
+const { idInteiro, textoLimpo, arredondar } = require('../lib/validacao');
+const { atualizarStatusAtrasos } = require('../services/atrasos');
 
 router.use(autenticar);
 
-const FORMAS = ['dinheiro', 'pix', 'debito', 'credito'];
+const STATUS_VALIDOS = ['ativa', 'quitada', 'atrasada'];
 
-// Data de hoje no fuso de Tocantins (YYYY-MM-DD)
-const hojeBR = () =>
-  new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+// ── GET /dividas?q=&status= ───────────────────────────────────
+// Busca por nome/CPF do cliente, produto e IMEI, com filtro de status.
+// (declarada ANTES de /:id)
+router.get('/', async (req, res) => {
+  const q      = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 100) : '';
+  const status = typeof req.query.status === 'string' ? req.query.status : '';
 
-// Soma meses em UTC, sem estourar o dia (31/01 + 1 mês = 28/02)
-function addMonthsUTC(date, n) {
-  const d = new Date(date);
-  const dia = d.getUTCDate();
-  d.setUTCDate(1);
-  d.setUTCMonth(d.getUTCMonth() + n);
-  const ultimo = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
-  d.setUTCDate(Math.min(dia, ultimo));
-  return d;
-}
+  if (status && !STATUS_VALIDOS.includes(status)) {
+    return res.status(400).json({ erro: `status deve ser: ${STATUS_VALIDOS.join(', ')}.` });
+  }
+
+  try {
+    await atualizarStatusAtrasos();
+
+    const and = [];
+    if (q) {
+      const ou = [
+        { descricao_produto: { contains: q, mode: 'insensitive' } },
+        { imei:              { contains: q } },
+        { cliente: { nome:   { contains: q, mode: 'insensitive' } } },
+      ];
+      // CPF só quando o termo parece um CPF (evita casar "iPhone 14" com CPFs)
+      const digitos = q.replace(/\D/g, '');
+      if (digitos.length >= 3 && /^[\d.\-\s]+$/.test(q)) {
+        ou.push({ cliente: { cpf: { contains: digitos } } });
+      }
+      and.push({ OR: ou });
+    }
+    if (status) and.push({ status });
+
+    const dividas = await prisma.divida.findMany({
+      where: and.length ? { AND: and } : undefined,
+      orderBy: { id_divida: 'desc' },
+      take: 50,
+      include: {
+        cliente:  { select: { id_cliente: true, nome: true, cpf: true } },
+        parcelas: { select: { status: true, valor_pago_acumulado: true } },
+      },
+    });
+
+    return res.json(
+      dividas.map((d) => {
+        const pago = d.parcelas.reduce((acc, p) => acc + Number(p.valor_pago_acumulado), 0);
+        return {
+          id_divida:         d.id_divida,
+          id_cliente:        d.cliente.id_cliente,
+          cliente_nome:      d.cliente.nome,
+          cliente_cpf:       d.cliente.cpf,
+          descricao_produto: d.descricao_produto,
+          imei:              d.imei,
+          valor_total:       d.valor_total,
+          saldo:             arredondar(Number(d.valor_total) - pago).toFixed(2),
+          parcelas_total:    d.parcelas_total,
+          parcelas_pagas:    d.parcelas.filter((p) => p.status === 'paga').length,
+          status:            d.status,
+          data_registro:     d.data_registro,
+        };
+      })
+    );
+  } catch (error) {
+    console.error('[DIVIDA] Erro ao buscar:', error.code ?? error.name);
+    return res.status(500).json({ erro: 'Erro ao buscar dívidas.' });
+  }
+});
 
 // ── POST /dividas ─────────────────────────────────────────────
 router.post('/', async (req, res) => {
-  const {
-    id_cliente,
-    valor_base,
-    descricao_produto,
-    imei,
-    informacoes_adicionais,
-    parcelas_total,
-    data_primeira_parcela, // parcelado: 1º vencimento | à vista: data da compra
-    tipo_venda = 'parcelada',
-    forma_pagamento,
-  } = req.body;
+  const body = req.body ?? {};
+  const id_cliente        = idInteiro(body.id_cliente);
+  const valor_base        = Number(body.valor_base);
+  const parcelas_total    = Number(body.parcelas_total);
+  const descricao_produto = textoLimpo(body.descricao_produto, 255);
+  const imei              = textoLimpo(body.imei, 30);
+  const informacoes_adicionais = typeof body.informacoes_adicionais === 'string'
+    ? body.informacoes_adicionais.trim().slice(0, 2000) : '';
+  const data_primeira_parcela = body.data_primeira_parcela; // "YYYY-MM-DD"
 
-  if (!['avista', 'parcelada'].includes(tipo_venda)) {
-    return res.status(400).json({ erro: "tipo_venda deve ser 'avista' ou 'parcelada'." });
-  }
-  const avista = tipo_venda === 'avista';
-
-  const idCliente    = Number(id_cliente);
-  const valorBaseNum = Number(valor_base);
-  if (!Number.isInteger(idCliente) || !descricao_produto || !(valorBaseNum > 0)) {
+  // Validações básicas
+  if (!id_cliente || !valor_base || !descricao_produto || !parcelas_total) {
     return res.status(400).json({
-      erro: 'Campos obrigatórios: id_cliente, valor_base (> 0), descricao_produto.',
+      erro: 'Campos obrigatórios: id_cliente, valor_base, descricao_produto, parcelas_total.',
     });
   }
-  if (forma_pagamento && !FORMAS.includes(forma_pagamento)) {
-    return res.status(400).json({ erro: `forma_pagamento deve ser: ${FORMAS.join(', ')}.` });
+  if (!Number.isFinite(valor_base) || valor_base <= 0 || !Number.isInteger(parcelas_total) || parcelas_total <= 0) {
+    return res.status(400).json({ erro: 'Valor base e parcelas devem ser maiores que zero.' });
   }
-  if (avista && !forma_pagamento) {
-    return res.status(400).json({ erro: 'Informe a forma de pagamento da venda à vista.' });
-  }
-
-  const nParcelas = avista ? 1 : Number(parcelas_total);
-  if (!Number.isInteger(nParcelas) || nParcelas < 1) {
-    return res.status(400).json({ erro: 'Informe o número de parcelas.' });
-  }
-  if (nParcelas > PARCELAS_MAXIMO) {
+  if (parcelas_total > PARCELAS_MAXIMO) {
     return res.status(400).json({
       erro: `O parcelamento é permitido em no máximo ${PARCELAS_MAXIMO}x.`,
     });
   }
-
-  // Data da compra (à vista): aceita passada, não aceita futura
-  const hoje = hojeBR();
-  if (data_primeira_parcela && !/^\d{4}-\d{2}-\d{2}$/.test(data_primeira_parcela)) {
-    return res.status(400).json({ erro: 'Data inválida. Use o formato AAAA-MM-DD.' });
+  if (data_primeira_parcela !== undefined && data_primeira_parcela !== null &&
+      !/^\d{4}-\d{2}-\d{2}$/.test(String(data_primeira_parcela))) {
+    return res.status(400).json({ erro: 'data_primeira_parcela deve estar no formato YYYY-MM-DD.' });
   }
-  if (avista && data_primeira_parcela && data_primeira_parcela > hoje) {
-    return res.status(400).json({ erro: 'A data da compra não pode ser futura.' });
+
+  // Calcula valor com juros conforme a faixa de parcelas
+  let valorBase, taxaAplicada, valorTotal;
+  try {
+    ({ valorBase, taxaAplicada, valorTotalComJuros: valorTotal } =
+      calcularValorComJuros(valor_base, parcelas_total));
+  } catch (err) {
+    return res.status(400).json({ erro: err.message });
   }
 
   try {
-    const cliente = await prisma.cliente.findUnique({ where: { id_cliente: idCliente } });
+    // Verifica se cliente existe
+    const cliente = await prisma.cliente.findUnique({ where: { id_cliente } });
     if (!cliente) {
       return res.status(404).json({ erro: 'Cliente não encontrado.' });
     }
 
-    let taxaAplicada, valorTotal, parcelasData, dataRegistro, statusDivida;
+    // Calcula valor por parcela (sobre o valor já com juros)
+    const valorParcela = parseFloat((valorTotal / parcelas_total).toFixed(2));
+    // Ajuste de centavos na última parcela
+    const valorUltima  = parseFloat(
+      (valorTotal - valorParcela * (parcelas_total - 1)).toFixed(2)
+    );
 
-    if (avista) {
-      // À vista: sem taxa, 1 parcela já paga, dívida nasce quitada
-      const dataCompra = new Date(`${data_primeira_parcela || hoje}T00:00:00Z`);
-      taxaAplicada = 0;
-      valorTotal   = parseFloat(valorBaseNum.toFixed(2));
-      dataRegistro = dataCompra;
-      statusDivida = 'quitada';
-      parcelasData = [{
-        numero:               1,
-        valor_parcela:        valorTotal,
-        valor_pago_acumulado: valorTotal,
-        data_vencimento:      dataCompra,
-        status:               'paga',
-        pagamentos: {
-          create: [{
-            data_pagamento:  dataCompra,
-            valor_pago:      valorTotal,
-            forma_pagamento,
-            observacao:      'Venda à vista',
-          }],
-        },
-      }];
-    } else {
-      let calc;
-      try {
-        calc = calcularValorComJuros(valorBaseNum, nParcelas);
-      } catch (err) {
-        return res.status(400).json({ erro: err.message });
-      }
-      taxaAplicada = calc.taxaAplicada;
-      valorTotal   = calc.valorTotalComJuros;
-      dataRegistro = new Date(`${hoje}T00:00:00Z`);
-      statusDivida = 'ativa';
+    // Data de vencimento base (padrão: daqui 1 mês)
+    const base = data_primeira_parcela ? new Date(data_primeira_parcela) : new Date();
+    if (!data_primeira_parcela) base.setMonth(base.getMonth() + 1);
 
-      const valorParcela = parseFloat((valorTotal / nParcelas).toFixed(2));
-      // Ajuste de centavos na última parcela
-      const valorUltima  = parseFloat((valorTotal - valorParcela * (nParcelas - 1)).toFixed(2));
-
-      const base = data_primeira_parcela
-        ? new Date(`${data_primeira_parcela}T00:00:00Z`)
-        : addMonthsUTC(new Date(`${hoje}T00:00:00Z`), 1);
-
-      parcelasData = Array.from({ length: nParcelas }, (_, i) => ({
+    // Monta parcelas
+    const parcelasData = Array.from({ length: parcelas_total }, (_, i) => {
+      const vencimento = new Date(base);
+      vencimento.setMonth(vencimento.getMonth() + i);
+      return {
         numero:          i + 1,
-        valor_parcela:   i === nParcelas - 1 ? valorUltima : valorParcela,
-        data_vencimento: addMonthsUTC(base, i),
+        valor_parcela:   i === parcelas_total - 1 ? valorUltima : valorParcela,
+        data_vencimento: vencimento,
         status:          'pendente',
-      }));
-    }
+      };
+    });
 
-    // Cria dívida + parcelas (+ pagamento, se à vista) em uma transação
+    // Cria dívida + parcelas em uma transação
     const divida = await prisma.divida.create({
       data: {
-        id_cliente:             idCliente,
-        id_funcionario:         req.funcionario.id,
-        valor_base:             valorBaseNum,
-        taxa_aplicada:          taxaAplicada,
-        valor_total:            valorTotal,
-        data_registro:          dataRegistro,
+        id_cliente,
+        id_funcionario:        req.funcionario.id,
+        valor_base:            valorBase,
+        taxa_aplicada:         taxaAplicada,
+        valor_total:           valorTotal,
+        data_registro:         new Date(),
         descricao_produto,
-        imei:                   imei ?? null,
-        informacoes_adicionais: informacoes_adicionais ?? null,
-        parcelas_total:         nParcelas,
-        status:                 statusDivida,
-        tipo_venda,
-        forma_pagamento:        forma_pagamento ?? 'dinheiro',
-        parcelas:               { create: parcelasData },
+        imei:                  imei || null,
+        informacoes_adicionais: informacoes_adicionais || null,
+        parcelas_total,
+        status:                'ativa',
+        parcelas: { create: parcelasData },
       },
       include: {
         cliente:  { select: { nome: true } },
@@ -164,28 +175,27 @@ router.post('/', async (req, res) => {
 
     return res.status(201).json(divida);
   } catch (error) {
-    console.error('[DIVIDA] Erro ao criar:', error);
+    console.error('[DIVIDA] Erro ao criar:', error.code ?? error.name);
     return res.status(500).json({ erro: 'Erro ao criar dívida.' });
   }
 });
 
 // ── GET /dividas/:id ──────────────────────────────────────────
 router.get('/:id', async (req, res) => {
-  const id = parseInt(req.params.id);
-
-  if (!Number.isInteger(id)) {
-    return res.status(400).json({ erro: 'ID da dívida inválido.' });
-  }
+  const id = idInteiro(req.params.id);
+  if (!id) return res.status(400).json({ erro: 'ID de dívida inválido.' });
 
   try {
+    await atualizarStatusAtrasos();
+
     const divida = await prisma.divida.findUnique({
       where: { id_divida: id },
       include: {
         cliente:     { select: { id_cliente: true, nome: true, cpf: true, telefone: true } },
         funcionario: { select: { nome: true } },
         parcelas: {
-          orderBy: { numero: 'asc' },
-          include: { pagamentos: { orderBy: { data_pagamento: 'asc' } } },
+          orderBy:  { numero: 'asc' },
+          include:  { pagamentos: { orderBy: { data_pagamento: 'asc' } } },
         },
       },
     });
@@ -201,7 +211,7 @@ router.get('/:id', async (req, res) => {
 
     return res.json({ ...divida, saldoDevedor });
   } catch (error) {
-    console.error('[DIVIDA] Erro ao buscar:', error);
+    console.error('[DIVIDA] Erro ao buscar:', error.code ?? error.name);
     return res.status(500).json({ erro: 'Erro ao buscar dívida.' });
   }
 });

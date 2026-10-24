@@ -10,6 +10,7 @@ import BuscaCliente from "./pages/BuscaCliente";
 import CadastroDivida from "./pages/CadastroDivida";
 import ListaDividas from "./pages/ListaDividas";
 import RegistrarPagamento from "./pages/RegistrarPagamento";
+import BuscaDivida from "./pages/BuscaDivida";
 
 function AppRoutes() {
   return (
@@ -23,6 +24,8 @@ function AppRoutes() {
       <Route path="/dividas/nova"           element={<Layout><CadastroDivida /></Layout>} />
       <Route path="/dividas/:clienteId"     element={<Layout><ListaDividas /></Layout>} />
       <Route path="/dividas/:dividaId/pagar" element={<Layout><RegistrarPagamento /></Layout>} />
+      <Route path="/clientes/:clienteId/editar" element={<Layout><CadastroCliente /></Layout>} />
+      <Route path="/dividas/busca"              element={<Layout><BuscaDivida /></Layout>} />
 
       <Route path="*" element={<Navigate to="/clientes" replace />} />
     </Routes>

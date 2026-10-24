@@ -2,6 +2,11 @@
 // Zero Paper – Tela de Busca de Clientes (T11)
 // Stack: React 18 + Tailwind CSS 3 + React Router v6
 // Integra com: GET /clientes?q=...
+//
+// 🔥 Incremento (A12): botão "Editar" ao lado de cada resultado.
+//    O <li> virou flex com dois irmãos — <button> (navega para dívidas)
+//    e <Link> "Editar" (vai para /clientes/:id/editar). Não aninhar
+//    <button> dentro de <button>.
 
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
@@ -161,10 +166,13 @@ export default function BuscaCliente() {
 
             <ul className="divide-y divide-gray-100">
               {clientes.map((c) => (
-                <li key={c.id_cliente}>
+                <li
+                  key={c.id_cliente}
+                  className="flex items-center hover:bg-gray-50 transition-colors"
+                >
                   <button
                     onClick={() => navigate(`/dividas/${c.id_cliente}`)}
-                    className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors text-left"
+                    className="flex-1 min-w-0 flex items-center gap-3 px-4 py-3.5 text-left"
                   >
                     {/* Avatar */}
                     <div
@@ -182,7 +190,7 @@ export default function BuscaCliente() {
                       </p>
                     </div>
 
-                    {/* Ação */}
+                    {/* Ação interna */}
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-xs text-bios-primary-600 font-medium hidden sm:block">
                         Ver dívidas
@@ -190,6 +198,14 @@ export default function BuscaCliente() {
                       <span className="text-gray-300 text-lg">›</span>
                     </div>
                   </button>
+
+                  {/* A12 — botão Editar (irmão do <button>, não aninhado) */}
+                  <Link
+                    to={`/clientes/${c.id_cliente}/editar`}
+                    className="mr-4 px-3 h-8 rounded-lg border border-gray-300 text-xs text-gray-600 hover:bg-gray-100 flex items-center shrink-0"
+                  >
+                    Editar
+                  </Link>
                 </li>
               ))}
             </ul>

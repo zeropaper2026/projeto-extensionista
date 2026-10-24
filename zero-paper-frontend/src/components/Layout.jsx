@@ -30,6 +30,9 @@ export default function Layout({ children }) {
           <button className="zp-navbar-btn zp-home-btn" onClick={() => navigate("/clientes")}>
             🏠 Início
           </button>
+          <button className="zp-navbar-btn zp-home-btn" onClick={() => navigate("/dividas/busca")}>
+            🔎 Dívidas
+          </button>
           {/* 🔥 NOVO: acesso direto ao cadastro de dívida a partir de qualquer tela */}
           <button className="zp-navbar-btn" onClick={() => navigate("/dividas/nova")}>
             ➕ Nova dívida

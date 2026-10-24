@@ -16,10 +16,9 @@ const prisma  = require('../lib/prisma');
 router.post('/login', async (req, res) => {
   const { login, senha } = req.body;
 
-  if (!login || !senha) {
-    return res.status(400).json({ erro: 'Login e senha são obrigatórios.' });
-  }
-
+  if (typeof login !== 'string' || typeof senha !== 'string' || !login || !senha) {
+  return res.status(400).json({ erro: 'Login e senha são obrigatórios.' });
+}
   try {
     // Busca funcionário pelo login
     const funcionario = await prisma.funcionario.findUnique({
@@ -57,7 +56,7 @@ router.post('/login', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('[AUTH] Erro no login:', error);
+    console.error('[AUTH] Erro no login:', error.code ?? error.name)
     return res.status(500).json({ erro: 'Erro interno do servidor.' });
   }
 });

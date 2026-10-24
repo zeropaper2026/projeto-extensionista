@@ -2,6 +2,11 @@
 // Zero Paper – Tela de Visualização de Dívidas do Cliente (T15)
 // Stack: React 18 + Tailwind CSS 3 + React Router v6
 // Integra com: GET /dividas/:clienteId
+//
+// 🔥 Incremento (A12):
+//   - Botão "Editar" ao lado de "+ Nova dívida" → /clientes/:id/editar
+//   - Card "Em atraso" no resumo + faixa de alerta quando há atraso
+//   - Dias de atraso por parcela (usa p.dias_atraso do backend)
 
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -89,6 +94,12 @@ function CardDivida({ divida }) {
                     <span className="text-xs text-gray-400">
                       {avista ? "Compra" : "Venc."}: {formatDateUTC(p.data_vencimento)}
                     </span>
+                    {/* A12 — dias em atraso por parcela */}
+                    {p.dias_atraso > 0 && (
+                      <span className="text-xs font-medium text-red-600">
+                        {p.dias_atraso} dia{p.dias_atraso !== 1 ? "s" : ""} em atraso
+                      </span>
+                    )}
                     <StatusBadge status={p.status} map={STATUS_PARCELA} />
                   </div>
 
@@ -211,6 +222,15 @@ export default function ListaDividas() {
             <h1 className="text-xl font-semibold text-gray-900">{cliente?.nome ?? "Cliente"}</h1>
             <p className="text-sm text-gray-500">CPF: {cliente?.cpf ?? "---"}</p>
           </div>
+
+          {/* A12 — botão Editar cliente */}
+          <Link
+            to={`/clientes/${clienteId}/editar`}
+            className="px-4 h-9 rounded-xl border border-gray-300 text-gray-600 text-sm font-medium hover:bg-gray-100 flex items-center"
+          >
+            Editar
+          </Link>
+
           <Link
             to="/dividas/nova"
             state={{ cliente: { id_cliente: cliente?.id_cliente, nome: cliente?.nome, cpf: cliente?.cpf, telefone: cliente?.telefone } }}
@@ -220,10 +240,22 @@ export default function ListaDividas() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-5">
+        {/* A12 — faixa de alerta quando há atraso */}
+        {Number(cliente?.resumo?.totalEmAtraso) > 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 mb-4">
+            Cliente com pagamento em atraso: {formatBRL(cliente.resumo.totalEmAtraso)} (maior atraso: {cliente.resumo.maiorAtrasoDias} dia(s)).
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
           <div className="bg-white rounded-xl border border-gray-200 p-3">
             <p className="text-xs text-gray-400 uppercase tracking-wide">Total em aberto</p>
             <p className="text-base font-bold text-red-600 mt-0.5">{formatBRL(totalEmAberto)}</p>
+          </div>
+          {/* A12 — card "Em atraso" */}
+          <div className="bg-white rounded-xl border border-gray-200 p-3">
+            <p className="text-xs text-gray-400 uppercase tracking-wide">Em atraso</p>
+            <p className="text-base font-bold text-red-600 mt-0.5">{formatBRL(cliente?.resumo?.totalEmAtraso ?? 0)}</p>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-3">
             <p className="text-xs text-gray-400 uppercase tracking-wide">Total quitado</p>

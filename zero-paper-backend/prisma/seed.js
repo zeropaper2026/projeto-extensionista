@@ -9,6 +9,11 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function main() {
+  // 🔥 BLOQUEIO DE PRODUÇÃO (A12)
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Seed bloqueado em produção. Use prisma/criarFuncionario.js.');
+  }
+
   console.log('🌱 Iniciando seed do banco de dados...\n');
 
   // ── 1. Funcionários ───────────────────────────────────────
@@ -66,8 +71,8 @@ async function main() {
       id_cliente:    cliente1.id_cliente,
       id_funcionario: atendente.id_funcionario,
       valor_total:    valorTotal,
-      valor_base:     valorTotal, // 🔥 JÁ ADICIONADO
-      taxa_aplicada:  0, // 🔥 NOVO: taxa de juros/multa (0% neste caso)
+      valor_base:     valorTotal, 
+      taxa_aplicada:  0, 
       data_registro:  new Date(),
       descricao_produto: 'Samsung Galaxy A55 – 128GB',
       imei: '351234567890123',
@@ -116,8 +121,8 @@ async function main() {
       id_cliente:     cliente2.id_cliente,
       id_funcionario: atendente.id_funcionario,
       valor_total:    450.00,
-      valor_base:     450.00, // 🔥 JÁ ADICIONADO
-      taxa_aplicada:  0, // 🔥 NOVO: taxa de juros/multa (0% neste caso)
+      valor_base:     450.00,
+      taxa_aplicada:  0,
       data_registro:  vencimentoPassado,
       descricao_produto: 'Moto G54 – 256GB',
       parcelas_total: 2,
@@ -152,11 +157,6 @@ async function main() {
 }
 
 main()
-
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('Seed bloqueado em produção. Use prisma/criarFuncionario.js.');
-    }
-    
   .catch((e) => {
     console.error('❌ Erro no seed:', e);
     process.exit(1);

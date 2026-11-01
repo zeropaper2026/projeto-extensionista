@@ -54,6 +54,7 @@ app.use('/auth',      require('./routes/auth.routes'));
 app.use('/clientes',  require('./routes/cliente.routes'));
 app.use('/dividas',   require('./routes/divida.routes'));
 app.use('/parcelas',  require('./routes/parcela.routes'));
+app.use('/pagamentos', require('./routes/pagamento.routes'));
 
 // ── Health check ─────────────────────────────────────────────
 app.get('/health', (_req, res) => {
@@ -79,3 +80,4 @@ app.listen(PORT, () => {
   console.log(`🚀 ZERO PAPER rodando na porta ${PORT}`);
   iniciarRotinaAtrasos();
 });
+

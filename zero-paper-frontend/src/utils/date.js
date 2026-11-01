@@ -41,3 +41,9 @@ export function hojeISO() {
   const d = new Date();
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split("T")[0];
 }
+
+export function formatDateUTC(value) {
+  const d = new Date(value);
+  if (isNaN(d)) return "—";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+}

@@ -11,6 +11,7 @@ import CadastroDivida from "./pages/CadastroDivida";
 import ListaDividas from "./pages/ListaDividas";
 import RegistrarPagamento from "./pages/RegistrarPagamento";
 import BuscaDivida from "./pages/BuscaDivida";
+import EditarDivida from "./pages/EditarDivida";
 
 function AppRoutes() {
   return (
@@ -26,6 +27,7 @@ function AppRoutes() {
       <Route path="/dividas/:dividaId/pagar" element={<Layout><RegistrarPagamento /></Layout>} />
       <Route path="/clientes/:clienteId/editar" element={<Layout><CadastroCliente /></Layout>} />
       <Route path="/dividas/busca"              element={<Layout><BuscaDivida /></Layout>} />
+      <Route path="/dividas/:dividaId/editar" element={<Layout><EditarDivida /></Layout>} />
 
       <Route path="*" element={<Navigate to="/clientes" replace />} />
     </Routes>

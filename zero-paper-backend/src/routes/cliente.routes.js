@@ -166,7 +166,7 @@ router.patch('/:id', async (req, res) => {
 });
 
 // ── GET /clientes/:id ─────────────────────────────────────────
-// Cliente + dívidas com parcelas (inclui dias_atraso por parcela)
+// Cliente + dívidas com parcelas (inclui dias_atraso por parcela + histórico de pagamentos)
 router.get('/:id', async (req, res) => {
   const id = idInteiro(req.params.id);
   if (!id) return res.status(400).json({ erro: 'ID de cliente inválido.' });
@@ -180,7 +180,12 @@ router.get('/:id', async (req, res) => {
       include: {
         dividas: {
           orderBy: { data_registro: 'desc' },
-          include: { parcelas: { orderBy: { numero: 'asc' } } },
+          include: {
+            parcelas: {
+              orderBy: { numero: 'asc' },
+              include: { pagamentos: { orderBy: { data_pagamento: 'asc' } } },
+            },
+          },
         },
       },
     });

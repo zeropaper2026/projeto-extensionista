@@ -11,6 +11,8 @@ const autenticar = require('../middlewares/autenticar');
 const { calcularValorComJuros, PARCELAS_MAXIMO } = require('../constants/taxasJuros');
 const { idInteiro, textoLimpo, arredondar } = require('../lib/validacao');
 const { atualizarStatusAtrasos } = require('../services/atrasos');
+const exigirPapel = require('../middlewares/exigirPapel');
+const { gerarParcelas, erroHttp } = require('../utils/parcelas');
 
 router.use(autenticar);
 
@@ -216,4 +218,103 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// ── PATCH /dividas/:id ────────────────────────────────────────
+// Campos descritivos: sempre editáveis.
+// valor_base / parcelas_total / data_primeira_parcela: só se NENHUM pagamento foi registrado.
+router.patch('/:id', exigirPapel('admin'), async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ erro: 'ID de dívida inválido.' });
+  }
+
+  const {
+    descricao_produto, imei, informacoes_adicionais,
+    valor_base, parcelas_total, data_primeira_parcela,
+  } = req.body;
+
+  if (descricao_produto !== undefined && !String(descricao_produto).trim()) {
+    return res.status(400).json({ erro: 'Descrição do produto não pode ficar vazia.' });
+  }
+
+  try {
+    const resultado = await prisma.$transaction(async (tx) => {
+      const divida = await tx.divida.findUnique({
+        where: { id_divida: id },
+        include: { parcelas: { orderBy: { numero: 'asc' } } },
+      });
+      if (!divida) throw erroHttp(404, 'Dívida não encontrada.');
+
+      const dados = {};
+      if (descricao_produto !== undefined)      dados.descricao_produto = String(descricao_produto).trim();
+      if (imei !== undefined)                   dados.imei = String(imei ?? '').trim() || null;
+      if (informacoes_adicionais !== undefined) dados.informacoes_adicionais = String(informacoes_adicionais ?? '').trim() || null;
+
+      // Valores "novos" (se não vieram, mantém os atuais)
+      const valorAtual    = Number(divida.valor_base);
+      const vencAtual     = divida.parcelas[0].data_vencimento.toISOString().slice(0, 10);
+      const novoValor     = valor_base !== undefined ? Number(String(valor_base).replace(',', '.')) : valorAtual;
+      const novasParcelas = parcelas_total !== undefined ? Number(parcelas_total) : divida.parcelas_total;
+      const novaData      = data_primeira_parcela || vencAtual;
+
+      if (!Number.isFinite(novoValor) || novoValor <= 0) {
+        throw erroHttp(400, 'Valor base deve ser maior que zero.');
+      }
+      if (!Number.isInteger(novasParcelas) || novasParcelas < 1 || novasParcelas > PARCELAS_MAXIMO) {
+        throw erroHttp(400, `O parcelamento é permitido de 1 a ${PARCELAS_MAXIMO}x.`);
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(novaData) || isNaN(new Date(novaData + 'T00:00:00Z'))) {
+        throw erroHttp(400, 'Data da 1ª parcela inválida (use AAAA-MM-DD).');
+      }
+
+      const mudouFinanceiro =
+        novoValor !== valorAtual ||
+        novasParcelas !== divida.parcelas_total ||
+        novaData !== vencAtual;
+
+      if (mudouFinanceiro) {
+        const qtdPagamentos = await tx.pagamento.count({
+          where: { parcela: { id_divida: id } },
+        });
+        if (qtdPagamentos > 0) {
+          throw erroHttp(
+            409,
+            'Não é possível alterar valor, parcelas ou data: a dívida já possui pagamento registrado. Apenas descrição, IMEI e informações adicionais podem ser editados.'
+          );
+        }
+
+        const { taxaAplicada, valorTotalComJuros } = calcularValorComJuros(novoValor, novasParcelas);
+        dados.valor_base      = novoValor;
+        dados.taxa_aplicada   = taxaAplicada;
+        dados.valor_total     = valorTotalComJuros;
+        dados.parcelas_total  = novasParcelas;
+        dados.status          = 'ativa';
+
+        // Regera as parcelas na MESMA transação
+        await tx.parcela.deleteMany({ where: { id_divida: id } });
+        await tx.parcela.createMany({
+          data: gerarParcelas(valorTotalComJuros, novasParcelas, new Date(novaData + 'T00:00:00Z'))
+                  .map((p) => ({ ...p, id_divida: id })),
+        });
+      }
+
+      if (Object.keys(dados).length > 0) {
+        await tx.divida.update({ where: { id_divida: id }, data: dados });
+      }
+
+      return tx.divida.findUnique({
+        where: { id_divida: id },
+        include: {
+          cliente:  { select: { id_cliente: true, nome: true } },
+          parcelas: { orderBy: { numero: 'asc' } },
+        },
+      });
+    });
+
+    return res.json(resultado);
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ erro: error.message });
+    console.error('[DIVIDA] Erro ao editar:', error);
+    return res.status(500).json({ erro: 'Erro ao editar dívida.' });
+  }
+});
 module.exports = router;

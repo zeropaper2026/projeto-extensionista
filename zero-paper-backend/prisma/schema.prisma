@@ -17,6 +17,8 @@ model Funcionario {
 
   dividas        Divida[]
 
+  estornos       Pagamento[]  @relation("EstornoPagamento")
+
   @@map("funcionario")
 }
 
@@ -90,8 +92,14 @@ model Pagamento {
   valor_pago      Decimal        @db.Decimal(10, 2)
   forma_pagamento FormaPagamento
   observacao      String?        @db.Text
-
   parcela         Parcela        @relation(fields: [id_parcela], references: [id_parcela])
+
+
+  estornado              Boolean      @default(false)
+  data_estorno           DateTime?
+  motivo_estorno         String?      @db.Text
+  id_funcionario_estorno Int?
+  funcionario_estorno    Funcionario? @relation("EstornoPagamento", fields: [id_funcionario_estorno], references: [id_funcionario])
 
   @@index([id_parcela], name: "idx_pagamento_parcela")
   @@map("pagamento")

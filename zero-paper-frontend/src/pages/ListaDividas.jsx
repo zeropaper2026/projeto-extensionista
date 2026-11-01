@@ -7,6 +7,13 @@
 //   - Botão "Editar" ao lado de "+ Nova dívida" → /clientes/:id/editar
 //   - Card "Em atraso" no resumo + faixa de alerta quando há atraso
 //   - Dias de atraso por parcela (usa p.dias_atraso do backend)
+//
+// 🔥 Incremento (estorno):
+//   - Histórico de pagamentos por parcela (usa p.pagamentos)
+//   - Modal de estorno com motivo obrigatório (admin)
+//   - Badge "Estornado" para pagamentos revertidos
+//   - Botão "Editar dívida" para admin
+//   - carregar() extraído como função reutilizável para recarregar após estorno
 
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -15,6 +22,10 @@ import { formatBRL } from "../utils/currency";
 import { formatDateUTC } from "../utils/date";
 import { FORMAS_PAGAMENTO } from "../constants/formaPagamento";
 import { STATUS_DIVIDA, STATUS_PARCELA } from "../constants/status";
+import { useAuth } from "../contexts/AuthContext";
+
+// Rótulos curtos usados no histórico de pagamentos
+const FORMA_LABEL = { dinheiro: "Dinheiro", pix: "Pix", debito: "Débito", credito: "Crédito" };
 
 function StatusBadge({ status, map }) {
   const cfg = map[status] ?? { label: status, cls: "bg-gray-100 text-gray-600 border-gray-200" };
@@ -25,8 +36,12 @@ function StatusBadge({ status, map }) {
   );
 }
 
-function CardDivida({ divida }) {
+function CardDivida({ divida, isAdmin, onChanged }) {
   const [aberto, setAberto] = useState(false);
+  const [alvo, setAlvo] = useState(null); // pagamento a estornar
+  const [motivo, setMotivo] = useState("");
+  const [erroEstorno, setErroEstorno] = useState("");
+  const [estornando, setEstornando] = useState(false);
   const navigate = useNavigate();
 
   const avista = divida.tipo_venda === "avista";
@@ -37,6 +52,25 @@ function CardDivida({ divida }) {
   const totalPago = parcelas.reduce((a, p) => a + Number(p.valor_pago_acumulado || 0), 0);
   const saldo = Math.max(Number(divida.valor_total) - totalPago, 0);
   const formaLabel = FORMAS_PAGAMENTO.find((f) => f.value === divida.forma_pagamento)?.label;
+
+  async function confirmarEstorno() {
+    if (motivo.trim().length < 5) {
+      setErroEstorno("Informe o motivo (mínimo de 5 caracteres).");
+      return;
+    }
+    setEstornando(true);
+    setErroEstorno("");
+    try {
+      await api.post(`/pagamentos/${alvo.id_pagamento}/estornar`, { motivo: motivo.trim() });
+      setAlvo(null);
+      setMotivo("");
+      onChanged?.();
+    } catch (err) {
+      setErroEstorno(err.response?.data?.erro || "Erro ao estornar pagamento.");
+    } finally {
+      setEstornando(false);
+    }
+  }
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
@@ -109,13 +143,38 @@ function CardDivida({ divida }) {
                     </p>
                   )}
 
+                  {/* Histórico de pagamentos da parcela */}
                   {(p.pagamentos ?? []).length > 0 && (
-                    <ul className="mt-1 ml-9 space-y-0.5">
+                    <ul className="mt-1 ml-9 space-y-1">
                       {p.pagamentos.map((pg) => (
-                        <li key={pg.id_pagamento} className="text-xs text-gray-400">
-                          {formatDateUTC(pg.data_pagamento)} · {formatBRL(pg.valor_pago)} ·{" "}
-                          {FORMAS_PAGAMENTO.find((f) => f.value === pg.forma_pagamento)?.label ?? pg.forma_pagamento}
-                          {pg.observacao ? ` · ${pg.observacao}` : ""}
+                        <li key={pg.id_pagamento} className="flex items-center gap-2 text-xs">
+                          <span className={pg.estornado ? "line-through text-gray-400" : "text-gray-600"}>
+                            {formatDateUTC(pg.data_pagamento)} · {formatBRL(pg.valor_pago)} ·{" "}
+                            {FORMA_LABEL[pg.forma_pagamento] ?? pg.forma_pagamento}
+                            {pg.observacao ? ` · ${pg.observacao}` : ""}
+                          </span>
+                          {pg.estornado ? (
+                            <span
+                              className="px-2 py-0.5 rounded-full border bg-red-50 text-red-700 border-red-200 text-xs"
+                              title={pg.motivo_estorno ?? ""}
+                            >
+                              Estornado
+                            </span>
+                          ) : (
+                            isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAlvo(pg);
+                                  setMotivo("");
+                                  setErroEstorno("");
+                                }}
+                                className="text-red-600 hover:underline text-xs"
+                              >
+                                Estornar
+                              </button>
+                            )
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -125,14 +184,67 @@ function CardDivida({ divida }) {
             })}
           </ul>
 
-          {!avista && divida.status !== "quitada" && (
-            <button
-              onClick={() => divida.id_divida && navigate(`/dividas/${divida.id_divida}/pagar`)}
-              className="mt-3 w-full h-9 rounded-xl bg-bios-primary-600 text-white text-sm font-medium hover:bg-bios-primary-700"
-            >
-              Registrar pagamento
-            </button>
-          )}
+          <div className="mt-3 flex gap-2">
+            {!avista && divida.status !== "quitada" && (
+              <button
+                onClick={() => divida.id_divida && navigate(`/dividas/${divida.id_divida}/pagar`)}
+                className="flex-1 h-9 rounded-xl bg-bios-primary-600 text-white text-sm font-medium hover:bg-bios-primary-700"
+              >
+                Registrar pagamento
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                onClick={() => navigate(`/dividas/${divida.id_divida}/editar`)}
+                className="px-4 h-9 rounded-xl border border-bios-primary-600 text-bios-primary-700 text-sm font-medium hover:bg-bios-primary-50"
+              >
+                Editar
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de estorno */}
+      {alvo && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl p-5 max-w-sm w-full">
+            <h3 className="text-base font-semibold text-gray-900">Estornar pagamento</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              {formatBRL(alvo.valor_pago)} em {formatDateUTC(alvo.data_pagamento)}. A parcela será recalculada
+              {divida.status === "quitada" ? " e a dívida será reaberta" : ""}.
+            </p>
+            <label className="block text-sm text-gray-600 mt-3 mb-1" htmlFor="motivo">
+              Motivo do estorno *
+            </label>
+            <textarea
+              id="motivo"
+              rows={3}
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-bios-primary-500 resize-none"
+              placeholder="Ex.: valor lançado na parcela errada"
+            />
+            {erroEstorno && <p className="text-xs text-red-500 mt-1">{erroEstorno}</p>}
+            <div className="flex gap-2 justify-end mt-4">
+              <button
+                type="button"
+                onClick={() => setAlvo(null)}
+                disabled={estornando}
+                className="px-4 h-9 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-100"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmarEstorno}
+                disabled={estornando}
+                className="px-4 h-9 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
+              >
+                {estornando ? "Estornando…" : "Confirmar estorno"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -142,35 +254,38 @@ function CardDivida({ divida }) {
 export default function ListaDividas() {
   const { clienteId } = useParams();
   const navigate = useNavigate();
+  const { auth } = useAuth();
+  const isAdmin = auth?.funcionario?.papel === "admin";
 
   const [cliente, setCliente] = useState(null);
   const [dividas, setDividas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
 
-  useEffect(() => {
-    async function carregar() {
-      if (!clienteId) {
-        setErro("ID do cliente não informado.");
-        setLoading(false);
-        return;
-      }
-      try {
-        const { data } = await api.get(`/clientes/${clienteId}`);
-        setCliente(data);
-        setDividas(data.dividas ?? []);
-      } catch (err) {
-        console.error("Erro ao carregar dados:", err);
-        let msg = "Não foi possível carregar as dívidas.";
-        if (err.code === "ERR_NETWORK") msg = "Erro de rede: backend offline.";
-        else if (err.response?.status === 404) msg = "Cliente não encontrado.";
-        else if (err.response?.data?.erro) msg = err.response.data.erro;
-        setErro(msg);
-      } finally {
-        setLoading(false);
-      }
+  async function carregar() {
+    if (!clienteId) {
+      setErro("ID do cliente não informado.");
+      setLoading(false);
+      return;
     }
+    try {
+      const { data } = await api.get(`/clientes/${clienteId}`);
+      setCliente(data);
+      setDividas(data.dividas ?? []);
+    } catch (err) {
+      let msg = "Não foi possível carregar as dívidas.";
+      if (err.code === "ERR_NETWORK") msg = "Erro de rede: backend offline.";
+      else if (err.response?.status === 404) msg = "Cliente não encontrado.";
+      else if (err.response?.data?.erro) msg = err.response.data.erro;
+      setErro(msg);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
     carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clienteId]);
 
   // 🔁 CORREÇÃO: calcula totais com base nas parcelas (saldo devedor e total pago)
@@ -178,11 +293,11 @@ export default function ListaDividas() {
   let totalQuitado = 0;
 
   for (const divida of dividas) {
-    for (const parcela of (divida.parcelas ?? [])) {
+    for (const parcela of divida.parcelas ?? []) {
       const valorParcela = Number(parcela.valor_parcela);
       const pagoAcumulado = Number(parcela.valor_pago_acumulado || 0);
       totalQuitado += pagoAcumulado;
-      totalEmAberto += (valorParcela - pagoAcumulado);
+      totalEmAberto += valorParcela - pagoAcumulado;
     }
   }
 
@@ -217,7 +332,9 @@ export default function ListaDividas() {
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-200">←</button>
+          <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-200">
+            ←
+          </button>
           <div className="flex-1">
             <h1 className="text-xl font-semibold text-gray-900">{cliente?.nome ?? "Cliente"}</h1>
             <p className="text-sm text-gray-500">CPF: {cliente?.cpf ?? "---"}</p>
@@ -233,7 +350,14 @@ export default function ListaDividas() {
 
           <Link
             to="/dividas/nova"
-            state={{ cliente: { id_cliente: cliente?.id_cliente, nome: cliente?.nome, cpf: cliente?.cpf, telefone: cliente?.telefone } }}
+            state={{
+              cliente: {
+                id_cliente: cliente?.id_cliente,
+                nome: cliente?.nome,
+                cpf: cliente?.cpf,
+                telefone: cliente?.telefone,
+              },
+            }}
             className="px-4 h-9 rounded-xl bg-bios-primary-600 text-white text-sm font-medium hover:bg-bios-primary-700 flex items-center gap-1"
           >
             + Nova dívida
@@ -243,7 +367,8 @@ export default function ListaDividas() {
         {/* A12 — faixa de alerta quando há atraso */}
         {Number(cliente?.resumo?.totalEmAtraso) > 0 && (
           <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 mb-4">
-            Cliente com pagamento em atraso: {formatBRL(cliente.resumo.totalEmAtraso)} (maior atraso: {cliente.resumo.maiorAtrasoDias} dia(s)).
+            Cliente com pagamento em atraso: {formatBRL(cliente.resumo.totalEmAtraso)} (maior atraso:{" "}
+            {cliente.resumo.maiorAtrasoDias} dia(s)).
           </div>
         )}
 
@@ -255,7 +380,9 @@ export default function ListaDividas() {
           {/* A12 — card "Em atraso" */}
           <div className="bg-white rounded-xl border border-gray-200 p-3">
             <p className="text-xs text-gray-400 uppercase tracking-wide">Em atraso</p>
-            <p className="text-base font-bold text-red-600 mt-0.5">{formatBRL(cliente?.resumo?.totalEmAtraso ?? 0)}</p>
+            <p className="text-base font-bold text-red-600 mt-0.5">
+              {formatBRL(cliente?.resumo?.totalEmAtraso ?? 0)}
+            </p>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-3">
             <p className="text-xs text-gray-400 uppercase tracking-wide">Total quitado</p>
@@ -275,7 +402,9 @@ export default function ListaDividas() {
           </div>
         ) : (
           <div className="space-y-3">
-            {dividas.map((d) => <CardDivida key={d.id_divida} divida={d} />)}
+            {dividas.map((d) => (
+              <CardDivida key={d.id_divida} divida={d} isAdmin={isAdmin} onChanged={carregar} />
+            ))}
           </div>
         )}
       </div>

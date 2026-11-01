@@ -28,14 +28,6 @@ export function parseISODate(dateStr) {
   return new Date(Date.UTC(year, month - 1, day));
 }
 
-// Datas vindas da API (@db.Date = meia-noite UTC): formata em UTC p/ não voltar 1 dia
-export function formatDateUTC(value) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (isNaN(d)) return "—";
-  return d.toLocaleDateString("pt-BR", { timeZone: "UTC", day: "2-digit", month: "2-digit", year: "numeric" });
-}
-
 // Hoje no fuso local (YYYY-MM-DD), sem o desvio do toISOString()
 export function hojeISO() {
   const d = new Date();

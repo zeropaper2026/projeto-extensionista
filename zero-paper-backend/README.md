@@ -33,6 +33,20 @@ npm run dev
 | Método | Rota |
 |---|---|
 | POST | /auth/login |
+| GET, POST | /clientes |
+| GET, PATCH | /clientes/:id |
+| GET, POST | /dividas |
+| GET, PATCH | /dividas/:id |
+| POST | /parcelas/:id/pagar |
+| POST | /pagamentos/:id/estornar |
+| GET, POST | /funcionarios |
+| PATCH | /funcionarios/:id/permissoes |
+| PATCH | /funcionarios/:id/senha |
+
+(tabela completa, com permissões, no README da raiz do repositório)
+
+---|---|
+| POST | /auth/login |
 | GET | /clientes |
 | POST | /clientes |
 | POST | /dividas |
@@ -42,7 +56,8 @@ npm run dev
 
 ## Status do Projeto
 
-Backend em desenvolvimento ⌛.
+Backend do Incremento II: venda parcelada com juros e à vista, pagamento parcial, estorno,
+atrasos automáticos, edição de cliente e de dívida, e Configurações do administrador
+(funcionários, senhas e permissão de estorno).
 
-Próximas etapas:
-- Cadastro + Banco de dados
+Próximas etapas: geração de PDF, relatórios e dashboard completo.

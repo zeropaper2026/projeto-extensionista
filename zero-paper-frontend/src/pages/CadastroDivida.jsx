@@ -2,9 +2,14 @@
 // Zero Paper – Tela de Criação de Dívida (T14)
 // Venda parcelada (com juros por faixa) ou à vista (sem taxa, histórico)
 // Integra com: POST /dividas  |  GET /clientes?q=...
+//
+// 🔥 A14 (melhorias dos testes integrados):
+//   S1 "Nenhum cliente encontrado" + botão para cadastrar (volta para cá com o cliente selecionado)
+//   S2 texto de apoio sob o campo de cliente
+//   S3 ao registrar sem cliente, rola até o campo e mantém o link para cadastrar
 
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import api from "../services/api";
 import { formatBRL } from "../utils/currency";
 import { addMonths, formatDateBR, hojeISO } from "../utils/date";
@@ -29,6 +34,7 @@ export default function CadastroDivida() {
   const [clienteSugestoes, setClienteSugestoes]     = useState([]);
   const [clienteSelecionado, setClienteSelecionado] = useState(clientePreSelecionado);
   const [loadingCliente, setLoadingCliente]         = useState(false);
+  const [semResultado, setSemResultado]             = useState(false); // S1
 
   const [produto, setProduto]               = useState("");
   const [imei, setImei]                     = useState("");
@@ -48,6 +54,7 @@ export default function CadastroDivida() {
 
   const debounceRef = useRef(null);
   const dropdownRef = useRef(null);
+  const clienteSecaoRef = useRef(null); // S3
 
   // ── fechar dropdown ao clicar fora ──────────────────────────────────────
   useEffect(() => {
@@ -62,7 +69,8 @@ export default function CadastroDivida() {
 
   // ── busca de clientes com debounce ───────────────────────────────────────
   useEffect(() => {
-    if (clienteQuery.length < 2) {
+    setSemResultado(false);
+    if (clienteQuery.trim().length < 2) {
       setClienteSugestoes([]);
       return;
     }
@@ -72,12 +80,14 @@ export default function CadastroDivida() {
       try {
         const { data } = await api.get(`/clientes?q=${encodeURIComponent(clienteQuery)}`);
         setClienteSugestoes(data.slice(0, 6));
+        setSemResultado(data.length === 0);
       } catch {
         setClienteSugestoes([]);
       } finally {
         setLoadingCliente(false);
       }
     }, 350);
+    return () => clearTimeout(debounceRef.current);
   }, [clienteQuery]);
 
   // ── taxa aplicável e valor com juros (preview) — à vista = sem taxa ──────
@@ -124,6 +134,9 @@ export default function CadastroDivida() {
       e.dataPrimeira = "A data da compra não pode ser futura.";
     }
     setErros(e);
+    if (e.cliente) {
+      clienteSecaoRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
     return Object.keys(e).length === 0;
   }
 
@@ -212,7 +225,7 @@ export default function CadastroDivida() {
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
 
           {/* ── Seção: Cliente ─────────────────────────────────────────── */}
-          <section className="bg-white rounded-2xl border border-gray-200 p-5">
+          <section ref={clienteSecaoRef} className="bg-white rounded-2xl border border-gray-200 p-5">
             <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
               Cliente
             </h2>
@@ -262,8 +275,16 @@ export default function CadastroDivida() {
                     </span>
                   )}
                 </div>
+                {/* S2: texto de apoio */}
+                <p className="text-xs text-gray-400 mt-1">
+                  O cliente precisa estar cadastrado antes de registrar a dívida.
+                </p>
+                {/* S3: erro com link para cadastrar */}
                 {erros.cliente && (
-                  <p className="text-xs text-red-500 mt-1">{erros.cliente}</p>
+                  <p className="text-xs text-red-500 mt-1">
+                    {erros.cliente}{" "}
+                    <Link to="/clientes/novo" className="font-medium underline">Cadastrar novo cliente</Link>
+                  </p>
                 )}
 
                 {clienteSugestoes.length > 0 && (
@@ -289,6 +310,20 @@ export default function CadastroDivida() {
                       </li>
                     ))}
                   </ul>
+                )}
+
+                {/* S1: nenhum resultado → cadastrar (CadastroCliente volta para cá com o cliente selecionado) */}
+                {semResultado && !loadingCliente && (
+                  <div className="mt-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
+                    <p className="text-sm font-medium text-gray-600">Nenhum cliente encontrado</p>
+                    <button
+                      type="button"
+                      onClick={() => navigate("/clientes/novo")}
+                      className="mt-2 px-4 h-9 rounded-xl bg-bios-primary-600 text-white text-sm font-medium hover:bg-bios-primary-700 transition-colors"
+                    >
+                      Cadastrar novo cliente
+                    </button>
+                  </div>
                 )}
               </div>
             )}

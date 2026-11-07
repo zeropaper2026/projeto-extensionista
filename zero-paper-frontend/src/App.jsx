@@ -12,6 +12,8 @@ import ListaDividas from "./pages/ListaDividas";
 import RegistrarPagamento from "./pages/RegistrarPagamento";
 import BuscaDivida from "./pages/BuscaDivida";
 import EditarDivida from "./pages/EditarDivida";
+import Dashboard from "./pages/Dashboard";
+import Configuracoes from "./pages/Configuracoes";
 
 function AppRoutes() {
   return (
@@ -20,6 +22,8 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
 
       {/* Rotas protegidas — Layout já contém o guard de autenticação */}
+      <Route path="/dashboard"              element={<Layout><Dashboard /></Layout>} />
+      <Route path="/configuracoes"          element={<Layout><Configuracoes /></Layout>} />
       <Route path="/clientes/novo"          element={<Layout><CadastroCliente /></Layout>} />
       <Route path="/clientes"               element={<Layout><BuscaCliente /></Layout>} />
       <Route path="/dividas/nova"           element={<Layout><CadastroDivida /></Layout>} />
@@ -29,7 +33,7 @@ function AppRoutes() {
       <Route path="/dividas/busca"              element={<Layout><BuscaDivida /></Layout>} />
       <Route path="/dividas/:dividaId/editar" element={<Layout><EditarDivida /></Layout>} />
 
-      <Route path="*" element={<Navigate to="/clientes" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }

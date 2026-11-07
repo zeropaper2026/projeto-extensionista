@@ -5,38 +5,74 @@
 // 🔥 Incremento (A1): botão "Nova dívida" adicionado à navbar, permitindo
 //    iniciar o cadastro de dívida a partir de qualquer tela do sistema
 //    (antes só era possível via BuscaCliente → selecionar cliente → ListaDividas).
+//
+// 🔥 Incremento (A14): menu com Início (/dashboard), Buscar cliente, Novo cliente,
+//    Dívidas, Nova dívida e Configurações (somente admin); menu responsivo (celular).
 
-import { Navigate, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Navigate, NavLink, useNavigate } from "react-router-dom";
 import { useAuth }   from "../contexts/AuthContext";
 import biosLogo from "../assets/bios-logo.jpg";
+
+const ITENS_MENU = [
+  { to: "/dashboard",     label: "🏠 Início" },
+  { to: "/clientes",      label: "🔍 Buscar cliente" },
+  { to: "/clientes/novo", label: "👤 Novo cliente" },
+  { to: "/dividas/busca", label: "🔎 Dívidas" },
+  { to: "/dividas/nova",  label: "➕ Nova dívida" },
+  { to: "/configuracoes", label: "⚙️ Configurações", somenteAdmin: true },
+];
 
 export default function Layout({ children }) {
   const { auth, logout } = useAuth();
   const navigate = useNavigate();
+  const [menuAberto, setMenuAberto] = useState(false);
 
   // Guard: redireciona para /login se não autenticado
   if (!auth) return <Navigate to="/login" replace />;
 
+  const ehAdmin = auth.funcionario?.papel === "admin";
+  const itens = ITENS_MENU.filter((i) => !i.somenteAdmin || ehAdmin);
+
   return (
     <div className="zp-layout">
       {/* Navbar global */}
-      <nav className="zp-navbar">
-        <div className="zp-navbar-brand">
+      <nav className={`zp-navbar${menuAberto ? " open" : ""}`}>
+        <button
+          type="button"
+          className="zp-brand-btn"
+          onClick={() => { setMenuAberto(false); navigate("/dashboard"); }}
+          aria-label="Ir para o início"
+        >
           <img src={biosLogo} alt="BIOS iPhones" className="zp-brand-logo" />
-          <div>
+          <span>
             <span className="zp-brand-sub">BIOS</span>
             <span className="zp-brand-name">IPHONES</span>
-          </div>
-          <button className="zp-navbar-btn zp-home-btn" onClick={() => navigate("/clientes")}>
-            🏠 Início
-          </button>
-          <button className="zp-navbar-btn zp-home-btn" onClick={() => navigate("/dividas/busca")}>
-            🔎 Dívidas
-          </button>
-          {/* 🔥 NOVO: acesso direto ao cadastro de dívida a partir de qualquer tela */}
-          <button className="zp-navbar-btn" onClick={() => navigate("/dividas/nova")}>
-            ➕ Nova dívida
-          </button>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className="zp-toggle"
+          onClick={() => setMenuAberto((v) => !v)}
+          aria-expanded={menuAberto}
+          aria-label="Abrir menu"
+        >
+          {menuAberto ? "✕" : "☰"}
+        </button>
+
+        <div className="zp-menu">
+          {itens.map((i) => (
+            <NavLink
+              key={i.to}
+              to={i.to}
+              end
+              onClick={() => setMenuAberto(false)}
+              className={({ isActive }) => `zp-link${isActive ? " active" : ""}`}
+            >
+              {i.label}
+            </NavLink>
+          ))}
         </div>
 
         <div className="zp-navbar-right">
@@ -67,9 +103,15 @@ export default function Layout({ children }) {
         body{font-family:'DM Sans',sans-serif;background:var(--g50)}
         .zp-layout{min-height:100vh;display:flex;flex-direction:column}
         .zp-navbar{
-          background:var(--navy);height:64px;display:flex;align-items:center;
-          justify-content:space-between;padding:0 2rem;flex-shrink:0;
+          background:var(--navy);min-height:64px;display:flex;align-items:center;
+          gap:1rem;padding:0 2rem;flex-shrink:0;flex-wrap:wrap;
         }
+        .zp-brand-btn{display:flex;align-items:center;gap:.75rem;background:none;border:none;cursor:pointer;text-align:left;padding:0}
+        .zp-menu{display:flex;align-items:center;gap:.35rem;flex:1;margin-left:1rem;flex-wrap:wrap}
+        .zp-link{color:rgba(255,255,255,.75);text-decoration:none;font-size:13px;padding:7px 14px;border-radius:20px;transition:.15s;white-space:nowrap}
+        .zp-link:hover{background:rgba(255,255,255,.14);color:#fff}
+        .zp-link.active{background:var(--teal);color:#fff}
+        .zp-toggle{display:none;background:rgba(255,255,255,.1);border:none;color:#fff;width:38px;height:38px;border-radius:8px;font-size:18px;cursor:pointer;margin-left:auto}
         .zp-navbar-brand{display:flex;align-items:center;gap:.75rem}
         .zp-brand-icon{
           width:38px;height:38px;background:var(--teal);border-radius:7px;
@@ -91,6 +133,14 @@ export default function Layout({ children }) {
         .zp-nova-divida-btn:hover{background:var(--teal-h);color:#fff}
         .zp-layout-main{flex:1}
         .zp-footer-bar{height:12px;background:linear-gradient(90deg,var(--navy) 0%,var(--teal) 100%);flex-shrink:0}
+        @media(max-width:900px){
+          .zp-navbar{padding:.6rem 1rem}
+          .zp-toggle{display:block}
+          .zp-menu,.zp-navbar-right{display:none;width:100%;margin:0}
+          .zp-navbar.open .zp-menu{display:flex;flex-direction:column;align-items:stretch;gap:.25rem;padding:.5rem 0}
+          .zp-navbar.open .zp-link{padding:10px 14px;border-radius:10px}
+          .zp-navbar.open .zp-navbar-right{display:flex;justify-content:space-between;padding:.5rem 0 .75rem;border-top:1px solid rgba(255,255,255,.12)}
+        }
       `}</style>
     </div>
   );

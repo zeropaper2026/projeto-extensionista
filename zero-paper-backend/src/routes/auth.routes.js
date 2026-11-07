@@ -11,7 +11,7 @@ const prisma  = require('../lib/prisma');
 /**
  * POST /auth/login
  * Body: { login, senha }
- * Retorna: { token, funcionario: { id, nome, login, papel } }
+ * Retorna: { token, funcionario: { id, nome, login, papel, pode_estornar } }
  */
 router.post('/login', async (req, res) => {
   const { login, senha } = req.body;
@@ -53,6 +53,7 @@ router.post('/login', async (req, res) => {
         nome:  funcionario.nome,
         login: funcionario.login,
         papel: funcionario.papel,
+        pode_estornar: funcionario.pode_estornar,
       },
     });
   } catch (error) {

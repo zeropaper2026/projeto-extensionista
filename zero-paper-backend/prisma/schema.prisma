@@ -14,6 +14,8 @@ model Funcionario {
   login          String       @unique @db.VarChar(50)
   senha          String       @db.VarChar(255)
   papel          PapelEnum    @default(atendente)
+  // Configurações do admin: libera o estorno para um atendente (admin sempre pode)
+  pode_estornar  Boolean      @default(false)
 
   dividas        Divida[]
 

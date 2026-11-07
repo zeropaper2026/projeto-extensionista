@@ -1,17 +1,17 @@
 // ============================================================
 // ZERO PAPER – Rotas de Pagamentos
-// POST /pagamentos/:id/estornar → estorno (somente admin, motivo obrigatório)
+// POST /pagamentos/:id/estornar → estorno (admin ou funcionário autorizado, motivo obrigatório)
 // ============================================================
 
 const router      = require('express').Router();
 const prisma      = require('../lib/prisma');
 const autenticar  = require('../middlewares/autenticar');
-const exigirPapel = require('../middlewares/exigirPapel');
+const podeEstornar = require('../middlewares/podeEstornar');
 const { erroHttp } = require('../utils/parcelas');
 
 router.use(autenticar);
 
-router.post('/:id/estornar', exigirPapel('admin'), async (req, res) => {
+router.post('/:id/estornar', podeEstornar, async (req, res) => {
     const id = parseInt(req.params.id, 10);
         if (!Number.isInteger(id) || id <= 0) {
             return res.status(400).json({ erro: 'ID de pagamento inválido.' });

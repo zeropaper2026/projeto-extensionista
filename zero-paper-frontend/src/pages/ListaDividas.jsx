@@ -24,6 +24,9 @@ import { FORMAS_PAGAMENTO } from "../constants/formaPagamento";
 import { STATUS_DIVIDA, STATUS_PARCELA } from "../constants/status";
 import { useAuth } from "../contexts/AuthContext";
 
+// S4 — regra de estorno visível em cada pagamento
+const DICA_ESTORNO = "Estorno: somente administrador ou funcionário autorizado";
+
 // Rótulos curtos usados no histórico de pagamentos
 const FORMA_LABEL = { dinheiro: "Dinheiro", pix: "Pix", debito: "Débito", credito: "Crédito" };
 
@@ -36,7 +39,7 @@ function StatusBadge({ status, map }) {
   );
 }
 
-function CardDivida({ divida, isAdmin, onChanged }) {
+function CardDivida({ divida, isAdmin, podeEstornar, onChanged }) {
   const [aberto, setAberto] = useState(false);
   const [alvo, setAlvo] = useState(null); // pagamento a estornar
   const [motivo, setMotivo] = useState("");
@@ -160,20 +163,24 @@ function CardDivida({ divida, isAdmin, onChanged }) {
                             >
                               Estornado
                             </span>
+                          ) : podeEstornar ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAlvo(pg);
+                                setMotivo("");
+                                setErroEstorno("");
+                              }}
+                              className="text-red-600 hover:underline text-xs"
+                              title={DICA_ESTORNO}
+                            >
+                              Estornar
+                            </button>
                           ) : (
-                            isAdmin && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setAlvo(pg);
-                                  setMotivo("");
-                                  setErroEstorno("");
-                                }}
-                                className="text-red-600 hover:underline text-xs"
-                              >
-                                Estornar
-                              </button>
-                            )
+                            // S4: deixa claro quem pode estornar
+                            <span className="text-[11px] text-gray-400" title={DICA_ESTORNO}>
+                              {DICA_ESTORNO}
+                            </span>
                           )}
                         </li>
                       ))}
@@ -256,6 +263,8 @@ export default function ListaDividas() {
   const navigate = useNavigate();
   const { auth } = useAuth();
   const isAdmin = auth?.funcionario?.papel === "admin";
+  // Admin sempre pode; atendente só se autorizado nas Configurações (o servidor confere no banco)
+  const podeEstornar = isAdmin || auth?.funcionario?.pode_estornar === true;
 
   const [cliente, setCliente] = useState(null);
   const [dividas, setDividas] = useState([]);
@@ -403,7 +412,7 @@ export default function ListaDividas() {
         ) : (
           <div className="space-y-3">
             {dividas.map((d) => (
-              <CardDivida key={d.id_divida} divida={d} isAdmin={isAdmin} onChanged={carregar} />
+              <CardDivida key={d.id_divida} divida={d} isAdmin={isAdmin} podeEstornar={podeEstornar} onChanged={carregar} />
             ))}
           </div>
         )}

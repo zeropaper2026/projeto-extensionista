@@ -34,7 +34,7 @@ export default function Login() {
       });
 
       login(data);          // salva token no AuthContext + localStorage
-      navigate("/clientes"); // redireciona para a home protegida
+      navigate("/dashboard"); // redireciona para a tela inicial
     } catch (err) {
       const msg = err.response?.data?.erro
         || err.response?.data?.message

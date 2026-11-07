@@ -12,6 +12,9 @@ import { formatDateUTC } from "../utils/date";
 import { FORMAS_PAGAMENTO } from "../constants/formaPagamento";
 import { STATUS_PARCELA } from "../constants/status";
 
+// S5 — valores sugeridos no campo "Valor pago" sempre com vírgula decimal ("93,33")
+const dec = (v) => Number(v ?? 0).toFixed(2).replace(".", ",");
+
 function StatusBadge({ status }) {
   const cfg = STATUS_PARCELA[status] ?? { label: status, cls: "bg-gray-100 text-gray-600 border-gray-200" };
   return <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full border ${cfg.cls}`}>{cfg.label}</span>;
@@ -52,8 +55,8 @@ export default function RegistrarPagamento() {
         const aberta = data.parcelas?.find(p => p.status === "pendente" || p.status === "atrasada" || p.status === "parcial");
         if (aberta) {
           setParcelaSelecionada(aberta);
-          const restante = aberta.valor_parcela - (aberta.valor_pago_acumulado ?? 0);
-          setValorPago(String(restante > 0 ? restante.toFixed(2) : aberta.valor_parcela));
+          const restante = Number(aberta.valor_parcela) - Number(aberta.valor_pago_acumulado ?? 0);
+          setValorPago(dec(restante > 0 ? restante : aberta.valor_parcela));
         }
       } catch (err) {
         console.error("Erro ao carregar dívida:", err);
@@ -71,8 +74,8 @@ export default function RegistrarPagamento() {
 
   function selecionarParcela(parcela) {
     setParcelaSelecionada(parcela);
-    const valorRestante = parcela.valor_parcela - (parcela.valor_pago_acumulado ?? 0);
-    setValorPago(String(valorRestante > 0 ? valorRestante.toFixed(2) : parcela.valor_parcela));
+    const valorRestante = Number(parcela.valor_parcela) - Number(parcela.valor_pago_acumulado ?? 0);
+    setValorPago(dec(valorRestante > 0 ? valorRestante : parcela.valor_parcela));
     setErros({});
   }
 
@@ -251,12 +254,12 @@ export default function RegistrarPagamento() {
                   <button
                     type="button"
                     onClick={() => {
-                      const restante = parcelaSelecionada.valor_parcela - (parcelaSelecionada.valor_pago_acumulado ?? 0);
-                      setValorPago(String((restante > 0 ? restante : parcelaSelecionada.valor_parcela).toFixed(2)));
+                      const restante = Number(parcelaSelecionada.valor_parcela) - Number(parcelaSelecionada.valor_pago_acumulado ?? 0);
+                      setValorPago(dec(restante > 0 ? restante : parcelaSelecionada.valor_parcela));
                     }}
                     className="text-xs text-bios-primary-500 hover:underline mt-1"
                   >
-                    Usar valor da parcela ({formatBRL(parcelaSelecionada.valor_parcela - (parcelaSelecionada.valor_pago_acumulado ?? 0))})
+                    Usar valor da parcela ({formatBRL(Number(parcelaSelecionada.valor_parcela) - Number(parcelaSelecionada.valor_pago_acumulado ?? 0))})
                   </button>
                 </div>
                 <div className="sm:col-span-2">

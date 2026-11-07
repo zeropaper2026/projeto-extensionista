@@ -1,178 +1,127 @@
 # 📱 ZERO PAPER
 
-> Elimina completamente o uso de papel no controle de vendas e finanças da Bios Center, transformando processos manuais em fluxos digitais eficientes, seguros e em tempo real.
+Sistema interno da **BIOS iPhones** para controle de vendas a prazo e dívidas de clientes, substituindo os registros em papel por um fluxo digital seguro e centralizado.
+
+Projeto Extensionista Integrador II — UNITINS (TADS).
 
 ---
 
-## 📁 Estrutura do Repositório
+## ✨ Funcionalidades
 
-```
-PROJETOEXTENSIONISTA/
-├── zero-paper-backend/     ← API Node.js + Prisma + PostgreSQL
-└── zero-paper-frontend/    ← Interface React + Vite
-```
+- Login de funcionários (JWT) com perfis **administrador** e **atendente**
+- Cadastro, busca e edição de clientes
+- Venda **parcelada** (juros por faixa: 8% de 1 a 7x, 12% de 8 a 12x) ou **à vista** (sem juros)
+- Parcelas geradas automaticamente, com pagamento total ou parcial
+- Atraso destacado automaticamente nas parcelas vencidas
+- Busca e edição de dívidas
+- Estorno de pagamento com motivo, para administrador ou funcionário autorizado
+- Configurações do administrador: funcionários, troca de senha e permissão de estorno
 
 ---
 
 ## 🧱 Tecnologias
 
-| Camada      | Tecnologia                                                                          |
-|-------------|-------------------------------------------------------------------------------------|
-| Frontend    | React 18 + Vite + Tailwind CSS 3 + React Router v6 + Axios                          |
-| Backend     | Node.js + Express + TypeScript                                                      |
-| Banco de Dados |     PostgreSQL 17 (via Docker) + Prisma ORM                                      |
-| Auth        | JWT (jsonwebtoken) + bcryptjs                                                       |
+| Camada         | Tecnologia                                              |
+|----------------|---------------------------------------------------------|
+| Frontend       | React 18 + Vite + Tailwind CSS 3 + React Router + Axios |
+| Backend        | Node.js + Express                                       |
+| Banco de dados | PostgreSQL 16 + Prisma ORM                              |
+| Autenticação   | JWT + bcryptjs                                          |
+| Infraestrutura | Docker Compose (local) · Vercel (frontend) · Railway (backend + banco) |
 
----
-
-## 🗄️ Banco de Dados — Modelos
-
-| Tabela         | Descrição                                      |
-|----------------|------------------------------------------------|
-| `funcionario`  | Usuários do sistema (admin / atendente)        |
-| `cliente`      | Clientes cadastrados                           |
-| `divida`       | Dívidas vinculadas a um cliente e funcionário  |
-| `parcela`      | Parcelas de cada dívida                        |
-| `pagamento`    | Pagamentos realizados por parcela              |
-
----
-
-## 🚀 Como Rodar o Projeto
-
-### Pré-requisitos
-
-- [Node.js 18+](https://nodejs.org/)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-
----
-
-### 1. Subir o banco de dados (Docker)
-
-```bash
-docker run -d \
-  --name zeropaper-db \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=zeropaper \
-  -p 5432:5432 \
-  postgres:15
+```
+PROJETOEXTENSIONISTA/
+├── zero-paper-backend/    ← API + Prisma + docker-compose
+└── zero-paper-frontend/   ← Interface React
 ```
 
 ---
 
-### 2. Backend
+## 🚀 Como rodar localmente
+
+**Pré-requisitos:** Docker e Node.js 18+.
+
+### Backend (Docker)
 
 ```bash
 cd zero-paper-backend
-
-# Instalar dependências
-npm install
-
-# Configurar variáveis de ambiente
-cp .env.example .env
-# Edite o .env e confirme a linha:
-# DATABASE_URL="postgresql://postgres:postgres@localhost:5432/zeropaper"
-# JWT_SECRET="sua_chave_secreta"
-
-# Gerar client Prisma e criar tabelas
-npm run db:generate
-npm run db:push
-
-# Popular banco com dados de teste
-npm run db:seed
-
-# Iniciar servidor (porta 3333)
-npm run dev
+docker compose up -d
 ```
 
-O backend estará disponível em: `http://localhost:3333`
+O compose sobe o PostgreSQL e a API em `http://localhost:3333`, aplicando as migrations na inicialização.
 
----
+> Rode os comandos do Prisma **sempre dentro do container**, para não deixar o Prisma Client desatualizado:
+> ```bash
+> docker compose exec backend npx prisma generate
+> docker compose exec backend npx prisma migrate deploy
+> docker compose restart backend
+> ```
 
-### 3. Frontend
+### Primeiro acesso
+
+Crie o administrador com senha forte (mínimo de 12 caracteres):
+
+```bash
+docker compose exec \
+  -e FUNC_LOGIN=admin -e FUNC_NOME="Nome do Admin" -e FUNC_PAPEL=admin \
+  -e FUNC_SENHA='uma-senha-longa-e-unica' backend node prisma/criarFuncionario.js
+```
+
+Os demais funcionários são cadastrados pelo próprio sistema, em **Configurações**.
+
+### Frontend
 
 ```bash
 cd zero-paper-frontend
-
-# Instalar dependências
 npm install
-
-# Configurar variável de ambiente
-cp .env.example .env.local
-# O arquivo já vem pronto com:
-# VITE_API_URL=http://localhost:3333
-
-# Iniciar aplicação (porta 5173)
 npm run dev
 ```
 
-A aplicação estará disponível em: `http://localhost:5173`
+Acesse `http://localhost:5173`. A API padrão é `http://localhost:3333`; para outro endereço, defina `VITE_API_URL` em `.env.local`.
 
 ---
 
-## 🔑 Credenciais de Teste
+## ⚙️ Variáveis de ambiente (backend)
 
-| Papel      | Login           | Senha      |
-|------------|-----------------|------------|
-| Admin      | `admin`         | `admin123` |
-| Atendente  | `aline.almeida` | `atend123` |
+| Variável         | Descrição                                                         |
+|------------------|-------------------------------------------------------------------|
+| `DATABASE_URL`   | String de conexão do PostgreSQL                                   |
+| `JWT_SECRET`     | Segredo do JWT — mínimo de 32 caracteres aleatórios em produção   |
+| `JWT_EXPIRES_IN` | Validade do token (padrão `8h`)                                   |
+| `CORS_ORIGIN`    | Origem(ns) do frontend permitidas (obrigatória em produção)       |
+| `PORT`           | Porta da API (padrão `3333`)                                      |
 
 ---
 
 ## 🌐 Rotas da API
 
-| Método  | Rota                    | Descrição                        | Auth |
-|---------|-------------------------|----------------------------------|------|
-| `POST`  | `/auth/login`           | Autenticação, retorna JWT        | ✗    |
-| `GET`   | `/clientes`             | Lista todos os clientes          | ✓    |
-| `POST`  | `/clientes`             | Cadastra novo cliente            | ✓    |
-| `POST`  | `/dividas`              | Registra nova dívida             | ✓    |
-| `PATCH` | `/parcelas/:id/pagar`   | Registra pagamento de parcela    | ✓    |
+| Método  | Rota                           | Descrição                                          | Acesso               |
+|---------|--------------------------------|----------------------------------------------------|----------------------|
+| `POST`  | `/auth/login`                  | Autenticação, retorna JWT                          | público              |
+| `GET`   | `/clientes?q=`                 | Busca clientes por nome ou CPF                     | autenticado          |
+| `GET`   | `/clientes/inadimplentes`      | Clientes com parcelas em atraso                    | autenticado          |
+| `POST`  | `/clientes`                    | Cadastra cliente                                   | autenticado          |
+| `GET`   | `/clientes/:id`                | Cliente com dívidas, parcelas e pagamentos         | autenticado          |
+| `PATCH` | `/clientes/:id`                | Edita cliente                                      | autenticado          |
+| `GET`   | `/dividas?q=&status=`          | Busca dívidas (cliente, produto, IMEI, status)     | autenticado          |
+| `POST`  | `/dividas`                     | Registra dívida (parcelada ou à vista)             | autenticado          |
+| `GET`   | `/dividas/:id`                 | Dívida com parcelas e pagamentos                   | autenticado          |
+| `PATCH` | `/dividas/:id`                 | Edita dívida                                       | admin                |
+| `POST`  | `/parcelas/:id/pagar`          | Registra pagamento (total ou parcial)              | autenticado          |
+| `POST`  | `/pagamentos/:id/estornar`     | Estorna pagamento (motivo obrigatório)             | admin ou autorizado  |
+| `GET`   | `/funcionarios`                | Lista funcionários                                 | admin                |
+| `POST`  | `/funcionarios`                | Cadastra funcionário                               | admin                |
+| `PATCH` | `/funcionarios/:id/permissoes` | Autoriza ou revoga estorno                         | admin                |
+| `PATCH` | `/funcionarios/:id/senha`      | Troca senha (própria; o admin troca a de qualquer um) | autenticado       |
+
+Os erros da API seguem o formato `{ "erro": "mensagem" }`.
 
 ---
 
-## 🖥️ Fluxo do MVP (Sprint 2)
+## 📋 Status
 
-```
-[Login] ──► autenticação JWT ──► [Cadastro de Cliente] ──► salvo no banco
-```
-
-1. Funcionário acessa a tela de login
-2. Informa login e senha → API valida e retorna token JWT
-3. Redirecionado direto para o formulário de cadastro de clientes
-4. Preenche os dados → enviados via `POST /clientes` com o token no header
-5. Cliente salvo no PostgreSQL com confirmação na tela
-
----
-
-## 📦 Scripts disponíveis
-
-### Backend (`zero-paper-backend/`)
-
-| Script           | O que faz                              |
-|------------------|----------------------------------------|
-| `npm run dev`    | Inicia com nodemon (hot reload)        |
-| `npm run start`  | Inicia em produção                     |
-| `npm run db:generate` | Gera o Prisma Client              |
-| `npm run db:push`     | Sincroniza schema com o banco     |
-| `npm run db:seed`     | Popula banco com dados de teste   |
-| `npm run db:studio`   | Abre o Prisma Studio (GUI)        |
-| `npm run db:reset`    | Reseta todas as migrations        |
-
-### Frontend (`zero-paper-frontend/`)
-
-| Script          | O que faz                         |
-|-----------------|-----------------------------------|
-| `npm run dev`   | Inicia em desenvolvimento         |
-| `npm run build` | Gera build de produção em `dist/` |
-| `npm run preview` | Pré-visualiza o build           |
-
----
-
-## 📋 Status do Projeto
-
-| Incrmentos   | Entrega                              | Status |
-|--------------|--------------------------------------|--------|
-| Incremento I | Taxa de Juros da maquininha          | ⌛ Em andamento |
-
-
+| Incremento     | Entrega                                                                 | Status           |
+|----------------|-------------------------------------------------------------------------|------------------|
+| Incremento I   | Juros por faixa de parcelas e identidade visual                         | ✅ Concluído     |
+| Incremento II  | Venda à vista, pagamento parcial, atraso, edição, estorno, Configurações | ✅ Em validação  |
+| Próximos passos| Geração de PDF, relatórios e dashboard completo                         | ⏳ Planejado     |

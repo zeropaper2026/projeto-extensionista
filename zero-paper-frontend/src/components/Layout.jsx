@@ -7,9 +7,11 @@
 //    (antes só era possível via BuscaCliente → selecionar cliente → ListaDividas).
 //
 // 🔥 Incremento (A14): menu com Início (/dashboard), Buscar cliente, Novo cliente,
-//    Dívidas, Nova dívida e Configurações (somente admin); menu responsivo (celular).
+//    Dívidas e Nova dívida; menu responsivo (celular).
+//    O nome do funcionário abre um menu de usuário: Configurações (somente admin) e Sair.
+//    (Espaço reservado para futuras notificações de dívidas perto de vencer.)
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, NavLink, useNavigate } from "react-router-dom";
 import { useAuth }   from "../contexts/AuthContext";
 import biosLogo from "../assets/bios-logo.jpg";
@@ -20,19 +22,42 @@ const ITENS_MENU = [
   { to: "/clientes/novo", label: "👤 Novo cliente" },
   { to: "/dividas/busca", label: "🔎 Dívidas" },
   { to: "/dividas/nova",  label: "➕ Nova dívida" },
-  { to: "/configuracoes", label: "⚙️ Configurações", somenteAdmin: true },
 ];
 
 export default function Layout({ children }) {
   const { auth, logout } = useAuth();
   const navigate = useNavigate();
   const [menuAberto, setMenuAberto] = useState(false);
+  const [usuarioAberto, setUsuarioAberto] = useState(false);
+  const usuarioRef = useRef(null);
+
+  // Fecha o menu do usuário ao clicar fora ou apertar Esc
+  useEffect(() => {
+    if (!usuarioAberto) return;
+    function fora(e) {
+      if (usuarioRef.current && !usuarioRef.current.contains(e.target)) setUsuarioAberto(false);
+    }
+    function esc(e) {
+      if (e.key === "Escape") setUsuarioAberto(false);
+    }
+    document.addEventListener("mousedown", fora);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", fora);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [usuarioAberto]);
 
   // Guard: redireciona para /login se não autenticado
   if (!auth) return <Navigate to="/login" replace />;
 
   const ehAdmin = auth.funcionario?.papel === "admin";
-  const itens = ITENS_MENU.filter((i) => !i.somenteAdmin || ehAdmin);
+
+  function irPara(rota) {
+    setMenuAberto(false);
+    setUsuarioAberto(false);
+    navigate(rota);
+  }
 
   return (
     <div className="zp-layout">
@@ -62,7 +87,7 @@ export default function Layout({ children }) {
         </button>
 
         <div className="zp-menu">
-          {itens.map((i) => (
+          {ITENS_MENU.map((i) => (
             <NavLink
               key={i.to}
               to={i.to}
@@ -75,13 +100,35 @@ export default function Layout({ children }) {
           ))}
         </div>
 
-        <div className="zp-navbar-right">
-          <span className="zp-navbar-user">
+        <div className="zp-navbar-right" ref={usuarioRef}>
+          <button
+            type="button"
+            className="zp-user-btn"
+            onClick={() => setUsuarioAberto((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={usuarioAberto}
+          >
             Olá, {auth.funcionario?.nome?.split(" ")[0]}
-          </span>
-          <button className="zp-navbar-btn" onClick={logout}>
-            Sair
+            <span className="zp-user-seta" aria-hidden="true">{usuarioAberto ? "▴" : "▾"}</span>
           </button>
+
+          {usuarioAberto && (
+            <div className="zp-user-menu" role="menu">
+              {ehAdmin && (
+                <button type="button" role="menuitem" className="zp-user-item" onClick={() => irPara("/configuracoes")}>
+                  ⚙️ Configurações
+                </button>
+              )}
+              <button
+                type="button"
+                role="menuitem"
+                className="zp-user-item zp-user-sair"
+                onClick={() => { setUsuarioAberto(false); logout(); }}
+              >
+                Sair
+              </button>
+            </div>
+          )}
         </div>
       </nav>
 
@@ -120,14 +167,14 @@ export default function Layout({ children }) {
         .zp-brand-logo{width:38px;height:38px;border-radius:7px;object-fit:cover;flex-shrink:0}
         .zp-brand-sub{display:block;font-size:9px;font-weight:400;letter-spacing:3px;color:rgba(255,255,255,.55);text-transform:uppercase;font-family:'Sora',sans-serif}
         .zp-brand-name{display:block;font-size:16px;font-weight:700;color:#fff;line-height:1;font-family:'Sora',sans-serif}
-        .zp-navbar-right{display:flex;align-items:center;gap:1rem}
-        .zp-navbar-user{font-size:13px;color:rgba(255,255,255,.7)}
-        .zp-navbar-btn{
-          background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.75);
-          padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;
-          font-family:'DM Sans',sans-serif;transition:.15s;white-space:nowrap;
-        }
-        .zp-navbar-btn:hover{background:rgba(255,255,255,.18);color:#fff}
+        .zp-navbar-right{position:relative;display:flex;align-items:center}
+        .zp-user-btn{display:flex;align-items:center;gap:.5rem;background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.85);padding:7px 14px;border-radius:20px;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:.15s}
+        .zp-user-btn:hover,.zp-user-btn[aria-expanded="true"]{background:rgba(255,255,255,.18);color:#fff}
+        .zp-user-seta{font-size:10px;opacity:.8}
+        .zp-user-menu{position:absolute;right:0;top:calc(100% + 8px);min-width:190px;background:var(--white);border:1px solid var(--g200);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:6px;z-index:50;display:flex;flex-direction:column}
+        .zp-user-item{background:none;border:none;text-align:left;padding:10px 12px;border-radius:8px;font-size:13px;color:#1e293b;cursor:pointer;font-family:'DM Sans',sans-serif;transition:.12s}
+        .zp-user-item:hover{background:var(--g50)}
+        .zp-user-sair{color:#dc2626}
         .zp-home-btn{margin-left:.5rem}
         .zp-nova-divida-btn{background:var(--teal);color:#fff}
         .zp-nova-divida-btn:hover{background:var(--teal-h);color:#fff}
@@ -139,7 +186,9 @@ export default function Layout({ children }) {
           .zp-menu,.zp-navbar-right{display:none;width:100%;margin:0}
           .zp-navbar.open .zp-menu{display:flex;flex-direction:column;align-items:stretch;gap:.25rem;padding:.5rem 0}
           .zp-navbar.open .zp-link{padding:10px 14px;border-radius:10px}
-          .zp-navbar.open .zp-navbar-right{display:flex;justify-content:space-between;padding:.5rem 0 .75rem;border-top:1px solid rgba(255,255,255,.12)}
+          .zp-navbar.open .zp-navbar-right{display:flex;flex-direction:column;align-items:stretch;padding:.5rem 0 .75rem;border-top:1px solid rgba(255,255,255,.12)}
+          .zp-navbar.open .zp-user-btn{justify-content:space-between;border-radius:10px;padding:10px 14px}
+          .zp-user-menu{position:static;margin-top:.5rem;box-shadow:none}
         }
       `}</style>
     </div>

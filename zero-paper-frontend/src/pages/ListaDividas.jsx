@@ -14,6 +14,10 @@
 //   - Badge "Estornado" para pagamentos revertidos
 //   - Botão "Editar dívida" para admin
 //   - carregar() extraído como função reutilizável para recarregar após estorno
+//
+// 🔥 Incremento (PDF):
+//   - Botão "Gerar PDF" no CardDivida (sempre visível no card aberto)
+//   - Chama GET /dividas/:id/pdf via services/pdf.js
 
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -23,6 +27,7 @@ import { formatDateUTC } from "../utils/date";
 import { FORMAS_PAGAMENTO } from "../constants/formaPagamento";
 import { STATUS_DIVIDA, STATUS_PARCELA } from "../constants/status";
 import { useAuth } from "../contexts/AuthContext";
+import { baixarPdfDivida, mensagemErroPdf } from "../services/pdf"; // NOVO
 
 // S4 — regra de estorno visível em cada pagamento
 const DICA_ESTORNO = "Estorno: somente administrador ou funcionário autorizado";
@@ -45,6 +50,7 @@ function CardDivida({ divida, isAdmin, podeEstornar, onChanged }) {
   const [motivo, setMotivo] = useState("");
   const [erroEstorno, setErroEstorno] = useState("");
   const [estornando, setEstornando] = useState(false);
+  const [gerandoPdf, setGerandoPdf] = useState(false); // NOVO
   const navigate = useNavigate();
 
   const avista = divida.tipo_venda === "avista";
@@ -55,6 +61,18 @@ function CardDivida({ divida, isAdmin, podeEstornar, onChanged }) {
   const totalPago = parcelas.reduce((a, p) => a + Number(p.valor_pago_acumulado || 0), 0);
   const saldo = Math.max(Number(divida.valor_total) - totalPago, 0);
   const formaLabel = FORMAS_PAGAMENTO.find((f) => f.value === divida.forma_pagamento)?.label;
+
+  // NOVO: gera e baixa o PDF da dívida
+  async function gerarPdf() {
+    setGerandoPdf(true);
+    try {
+      await baixarPdfDivida(divida.id_divida);
+    } catch (err) {
+      alert(await mensagemErroPdf(err));
+    } finally {
+      setGerandoPdf(false);
+    }
+  }
 
   async function confirmarEstorno() {
     if (motivo.trim().length < 5) {
@@ -209,6 +227,16 @@ function CardDivida({ divida, isAdmin, podeEstornar, onChanged }) {
               </button>
             )}
           </div>
+
+          {/* NOVO: Gerar PDF — sempre visível no card aberto */}
+          <button
+            type="button"
+            onClick={gerarPdf}
+            disabled={gerandoPdf}
+            className="mt-3 w-full h-9 rounded-xl border border-bios-primary-600 text-bios-primary-700 text-sm font-medium hover:bg-bios-primary-50 disabled:opacity-50"
+          >
+            {gerandoPdf ? "Gerando PDF…" : "Gerar PDF"}
+          </button>
         </div>
       )}
 

@@ -52,10 +52,13 @@ app.use(apiLimiter);
 // ── Rotas ────────────────────────────────────────────────────
 app.use('/auth',      require('./routes/auth.routes'));
 app.use('/clientes',  require('./routes/cliente.routes'));
+app.use('/dividas', require('./routes/dividaPdf.routes'));
 app.use('/dividas',   require('./routes/divida.routes'));
+app.use('/relatorios', require('./routes/relatorio.routes'));
 app.use('/parcelas',  require('./routes/parcela.routes'));
 app.use('/pagamentos', require('./routes/pagamento.routes'));
 app.use('/funcionarios', require('./routes/funcionario.routes'));
+
 
 // ── Health check ─────────────────────────────────────────────
 app.get('/health', (_req, res) => {

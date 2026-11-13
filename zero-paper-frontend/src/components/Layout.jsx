@@ -10,6 +10,9 @@
 //    Dívidas e Nova dívida; menu responsivo (celular).
 //    O nome do funcionário abre um menu de usuário: Configurações (somente admin) e Sair.
 //    (Espaço reservado para futuras notificações de dívidas perto de vencer.)
+//
+// 🔥 Incremento (Relatórios): item "📊 Relatórios" no menu, visível apenas para admin.
+//    Rota /relatorios registrada no App.jsx.
 
 import { useEffect, useRef, useState } from "react";
 import { Navigate, NavLink, useNavigate } from "react-router-dom";
@@ -23,6 +26,9 @@ const ITENS_MENU = [
   { to: "/dividas/busca", label: "🔎 Dívidas" },
   { to: "/dividas/nova",  label: "➕ Nova dívida" },
 ];
+
+// NOVO: item exclusivo de admin
+const ITEM_RELATORIOS = { to: "/relatorios", label: "📊 Relatórios" };
 
 export default function Layout({ children }) {
   const { auth, logout } = useAuth();
@@ -52,6 +58,11 @@ export default function Layout({ children }) {
   if (!auth) return <Navigate to="/login" replace />;
 
   const ehAdmin = auth.funcionario?.papel === "admin";
+
+  // NOVO: lista final do menu (admin vê Relatórios)
+  const itensVisiveis = ehAdmin
+    ? [...ITENS_MENU, ITEM_RELATORIOS]
+    : ITENS_MENU;
 
   function irPara(rota) {
     setMenuAberto(false);
@@ -87,7 +98,7 @@ export default function Layout({ children }) {
         </button>
 
         <div className="zp-menu">
-          {ITENS_MENU.map((i) => (
+          {itensVisiveis.map((i) => (
             <NavLink
               key={i.to}
               to={i.to}
@@ -139,6 +150,7 @@ export default function Layout({ children }) {
 
       {/* Rodapé decorativo */}
       <div className="zp-footer-bar" />
+      
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=DM+Sans:wght@400;500&display=swap');

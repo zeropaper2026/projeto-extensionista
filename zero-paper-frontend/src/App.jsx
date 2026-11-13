@@ -14,6 +14,7 @@ import BuscaDivida from "./pages/BuscaDivida";
 import EditarDivida from "./pages/EditarDivida";
 import Dashboard from "./pages/Dashboard";
 import Configuracoes from "./pages/Configuracoes";
+import Relatorios from "./pages/Relatorios";
 
 function AppRoutes() {
   return (
@@ -32,6 +33,7 @@ function AppRoutes() {
       <Route path="/clientes/:clienteId/editar" element={<Layout><CadastroCliente /></Layout>} />
       <Route path="/dividas/busca"              element={<Layout><BuscaDivida /></Layout>} />
       <Route path="/dividas/:dividaId/editar" element={<Layout><EditarDivida /></Layout>} />
+      <Route path="/relatorios" element={<Layout><Relatorios /></Layout>} />
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
